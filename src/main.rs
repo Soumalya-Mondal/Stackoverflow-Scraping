@@ -6,18 +6,20 @@ use std::time::Instant;
 const BASE_URL: &str = "https://stackoverflow.com/questions";
 const REQURIED_BLOCK_SELECTOR: &str = "div#questions";
 const TOTAL_QUESTION_SELECTOR: &str = "meta[itemprop='numberOfItems']";
+const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
 
 #[tokio::main]
 async fn main() {
     // create output directory
-    create_dir_all("output").unwrap();
+    create_dir_all("output")
+        .unwrap();
 
     // create web-client object
     let web_client = Client::new();
 
     // create response object
     let page_response = web_client.get(BASE_URL.to_string())
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+        .header("User-Agent", USER_AGENT)
         .send()
         .await
         .unwrap();
@@ -69,25 +71,29 @@ async fn main() {
 
         // fetch page HTML content
         let page_response = web_client.get(&url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .header("User-Agent", USER_AGENT)
             .send()
             .await
             .unwrap();
 
-        // convert response to text
-        let page_html_content: String = page_response
-            .text()
-            .await
-            .unwrap();
+        if page_response.status() == 200 {
+            // convert response to text
+            let page_html_content: String = page_response
+                .text()
+                .await
+                .unwrap();
 
-        // create and write to page file
-        let page_file_path = format!("output/{}.txt", page);
-        let mut page_file = File::create(page_file_path)
-            .unwrap();
-        page_file.write_all(page_html_content.as_bytes())
-            .unwrap();
+            // create and write to page file
+            let page_file_path: String = format!("output/{}.txt", page);
+            let mut page_file = File::create(page_file_path)
+                .unwrap();
+            page_file.write_all(page_html_content.as_bytes())
+                .unwrap();
 
-        let elapsed = start.elapsed();
-        println!("Saved page {} in {:.2} seconds", page, elapsed.as_secs_f64());
+            let elapsed = start.elapsed();
+            println!("Saved page {} in {:.2} seconds", page, elapsed.as_secs_f64());
+        } else {
+            println!("Failed to fetch page {}: status {}", page, page_response.status());
+        }
     }
 }
