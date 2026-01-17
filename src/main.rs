@@ -1,7 +1,9 @@
+#![allow(dead_code)]
 use reqwest::Client;
 
 const BASE_URL: &str = "https://stackoverflow.com/questions";
-const ALL_QUESTION_SELECTOR: &str = "div#questions";
+const REQURIED_BLOCK_SELECTOR: &str = "div#questions";
+const TOTAL_QUESTION_SELECTOR: &str = "meta[itemprop='numberOfItems']";
 const SINGLE_QUESTION_SELECTOR: &str = "div.bb.bc-black-200";
 const QUESTION_NUMBER_SELECTOR: &str = "meta[itemprop='position']";
 
@@ -20,22 +22,32 @@ async fn main() {
         .text()
         .await
         .unwrap();
+    // parse the whole page content
     let whole_html_parse_document = scraper::Html::parse_document(&whole_page_content);
-    // let all_question_selector = scraper::Selector::parse(ALL_QUESTION_SELECTOR)
-    //     .unwrap();
-    // let all_question_elements = whole_html_parse_document
-    //     .select(&all_question_selector)
-    //     .next()
-    //     .unwrap();
-    // let per_question_selector = scraper::Selector::parse(SINGLE_QUESTION_SELECTOR)
-    //     .unwrap();
-    // let per_question_elements = all_question_elements.select(&per_question_selector);
-    // let question_number_selector = scraper::Selector::parse(QUESTION_NUMBER_SELECTOR)
-    //     .unwrap();
-    // for single_question_element in per_question_elements {
-    //     if let Some(meta_element) = single_question_element.select(&question_number_selector).next()
-    //         && let Some(content) = meta_element.value().attr("content") {
-    //             println!("{}", content);
-    //         }
-    // }
+    // select required block
+    let required_block_selector = scraper::Selector::parse(REQURIED_BLOCK_SELECTOR)
+        .unwrap();
+    // get required block element
+    let required_block_element = whole_html_parse_document
+        .select(&required_block_selector)
+        .next()
+        .unwrap();
+    // get total question count
+    let total_question_selector = scraper::Selector::parse(TOTAL_QUESTION_SELECTOR)
+        .unwrap();
+    // extract total question count
+    let total_question_element = required_block_element
+        .select(&total_question_selector)
+        .next()
+        .unwrap();
+    // parse total question count
+    let total_question_count: usize = total_question_element
+        .value()
+        .attr("content")
+        .unwrap()
+        .parse()
+        .unwrap();
+    println!("Total Questions: {}", total_question_count);
+    let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
+    println!("Total Pages: {}", total_pages_count);
 }
