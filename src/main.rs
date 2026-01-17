@@ -1,7 +1,8 @@
 use reqwest::Client;
 use std::fs::{File, create_dir_all};
 use std::io::Write;
-use std::time::Instant;
+use rand::Rng;
+use tokio::time::{sleep, Duration};
 
 const BASE_URL: &str = "https://stackoverflow.com/questions";
 const REQURIED_BLOCK_SELECTOR: &str = "div#questions";
@@ -66,8 +67,12 @@ async fn main() {
 
     // loop through all pages and store HTML content
     for page in (1..=total_pages_count).rev() {
-        let start = Instant::now();
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
+
+        // add random delay between 1 and 2 seconds
+        let delay = rand::rng().random_range(1.0..2.0);
+        sleep(Duration::from_secs_f64(delay))
+            .await;
 
         // fetch page HTML content
         let page_response = web_client.get(&url)
@@ -90,8 +95,7 @@ async fn main() {
             page_file.write_all(page_html_content.as_bytes())
                 .unwrap();
 
-            let elapsed = start.elapsed();
-            println!("Saved page {} in {:.2} seconds", page, elapsed.as_secs_f64());
+            println!("Saved page {}", page);
         } else {
             println!("Failed to fetch page {}: status {}", page, page_response.status());
         }
