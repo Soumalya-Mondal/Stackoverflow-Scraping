@@ -1,4 +1,3 @@
-
 // -----------------------------
 // External crate imports
 // -----------------------------
@@ -90,7 +89,7 @@ fn parse_questions_views_and_links(page_html: &str, page: u64) -> Vec<QuestionRo
     for q in required_block.select(&question_block_sel) {
         // ---- Title ----
         // Extract title text, trim whitespace, default to empty string if missing.
-        let title = q
+        let title: String = q
             .select(&title_sel)
             .next()
             .map(|n| n.text().collect::<String>().trim().to_string())
@@ -104,7 +103,7 @@ fn parse_questions_views_and_links(page_html: &str, page: u64) -> Vec<QuestionRo
         // ---- Link (href) ----
         // Usually relative: "/questions/...."
         // Extract href attribute from the anchor tag.
-        let href = q
+        let href: String = q
             .select(&link_sel)
             .next()
             .and_then(|a| a.value().attr("href"))
@@ -139,6 +138,16 @@ async fn main() {
     // Create output directory if it doesn't exist
     // Ensures CSV and lost-page logs can be written safely.
     fs::create_dir_all("output").unwrap();
+
+    // Delete existing CSV file if present
+    if fs::metadata("output/StackOverFlowQuestions.csv").is_ok() {
+        fs::remove_file("output/StackOverFlowQuestions.csv").unwrap();
+    }
+
+    // Delete existing LostPage.txt file if present
+    if fs::metadata("output/LostPage.txt").is_ok() {
+        fs::remove_file("output/LostPage.txt").unwrap();
+    }
 
     // Initialize CSV writer with UTF-8 BOM
     // BOM helps some Windows Excel setups recognize UTF-8 correctly.
@@ -192,6 +201,7 @@ async fn main() {
 
     // Iterate pages in reverse order (last page to first page).
     // This pattern might be chosen to collect older questions first.
+    let mut page_count: u64 = 1;
     for page in (1..=total_pages_count).rev() {
         // Build URL for each page with fixed pagesize=50.
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
@@ -209,14 +219,17 @@ async fn main() {
         {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("Failed to fetch page {}: {}", page, e);
+                eprintln!("{} - Failed to fetch page {}: {}", page_count, page, e);
                 continue;
             }
         };
 
+        // Add terminal output for successful fetches
+        println!("{} - PAGE: {}; RESPONSE: {}", page_count, page, resp.status());
+
         // If server returns non-2xx response, log it and save the page number.
         if !resp.status().is_success() {
-            eprintln!("Failed page {}: status {}", page, resp.status());
+            eprintln!("{} - Failed page {}: status {}", page_count, page, resp.status());
 
             // Append failed page info to output/LostPage.txt for later retry/debugging.
             let mut file = fs::OpenOptions::new()
@@ -228,14 +241,11 @@ async fn main() {
             continue;
         }
 
-        // Basic visibility logging (progress indicator).
-        println!("Page {}: status {}", page, resp.status());
-
         // Read response body to HTML string and handle body read errors.
-        let html = match resp.text().await {
+        let html: String = match resp.text().await {
             Ok(t) => t,
             Err(e) => {
-                eprintln!("Failed to read HTML page {}: {}", page, e);
+                eprintln!("{} - Failed to read HTML page {}: {}", page_count, page, e);
                 continue;
             }
         };
@@ -247,9 +257,6 @@ async fn main() {
             continue;
         }
 
-        // Report number of questions extracted from the page.
-        println!("Page {} has {} questions.", page, items.len());
-
         // Write each extracted row to CSV.
         // Convert numeric values to string because CSV writer expects string slices.
         for item in items {
@@ -259,6 +266,7 @@ async fn main() {
                 item.id.to_string(),
             ]).unwrap();
         }
+        page_count += 1;
     }
 
     // Flush buffered output to disk to ensure CSV is complete.
