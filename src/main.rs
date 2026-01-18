@@ -13,28 +13,21 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 const QUESTION_BLOCK_SELECTOR: &str = "div.s-post-summary.js-post-summary";
 const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='name']";
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
-const STAT_ITEM_SELECTOR: &str = "div.s-post-summary--stats-item";
-const STAT_NUM_SELECTOR: &str = "span.s-post-summary--stats-item-number";
-const STAT_UNIT_SELECTOR: &str = "span.s-post-summary--stats-item-unit";
 
 #[derive(Debug, Clone)]
 struct QuestionRow {
     title: String,
-    views: u64,
     id: u64,
+    page_number: u64,
 }
 
-fn parse_questions_views_and_links(page_html: &str) -> Vec<QuestionRow> {
+fn parse_questions_views_and_links(page_html: &str, page: u64) -> Vec<QuestionRow> {
     let doc = Html::parse_document(page_html);
 
     let required_block_sel = Selector::parse(REQUIRED_BLOCK_SELECTOR).unwrap();
     let question_block_sel = Selector::parse(QUESTION_BLOCK_SELECTOR).unwrap();
     let title_sel = Selector::parse(TITLE_SELECTOR).unwrap();
     let link_sel = Selector::parse(LINK_SELECTOR).unwrap();
-
-    let stat_item_sel = Selector::parse(STAT_ITEM_SELECTOR).unwrap();
-    let stat_num_sel = Selector::parse(STAT_NUM_SELECTOR).unwrap();
-    let stat_unit_sel = Selector::parse(STAT_UNIT_SELECTOR).unwrap();
 
     let mut results = Vec::new();
 
@@ -71,31 +64,7 @@ fn parse_questions_views_and_links(page_html: &str) -> Vec<QuestionRow> {
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
 
-        // ---- Views ----
-        let mut views: u64 = 0;
-        for item in q.select(&stat_item_sel) {
-            let unit = item
-                .select(&stat_unit_sel)
-                .next()
-                .map(|u| u.text().collect::<String>().trim().to_lowercase())
-                .unwrap_or_default();
-
-            if unit == "views" {
-                let num_txt = item
-                    .select(&stat_num_sel)
-                    .next()
-                    .map(|n| n.text().collect::<String>().trim().to_string())
-                    .unwrap_or_default();
-
-                let cleaned = num_txt.replace(',', "");
-                if let Ok(v) = cleaned.parse::<u64>() {
-                    views = v;
-                }
-                break;
-            }
-        }
-
-        results.push(QuestionRow { title, views, id });
+        results.push(QuestionRow { title, id, page_number: page });
     }
 
     results
@@ -112,7 +81,7 @@ async fn main() {
     let mut file = fs::File::create("output/StackOverFlowQuestions.csv").unwrap();
     file.write_all(&[0xEF, 0xBB, 0xBF]).unwrap(); // UTF-8 BOM
     let mut writer = Writer::from_writer(file);
-    writer.write_record(["Title", "Views", "ID"]).unwrap();
+    writer.write_record(["PageNumber", "Question", "ID"]).unwrap();
 
     // Fetch first page to compute total pages
     let page_response = web_client
@@ -146,7 +115,7 @@ async fn main() {
 
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
 
-    for page in 1..=total_pages_count {
+    for page in (1..=total_pages_count).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
         sleep(Duration::from_secs_f64(rand::rng().random_range(1.0..2.0))).await;
@@ -166,6 +135,12 @@ async fn main() {
 
         if !resp.status().is_success() {
             eprintln!("Failed page {}: status {}", page, resp.status());
+            let mut file = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("output/LostPage.txt")
+                .unwrap();
+            writeln!(file, "{}", page).unwrap();
             continue;
         }
 
@@ -179,18 +154,21 @@ async fn main() {
             }
         };
 
-        let items = parse_questions_views_and_links(&html);
+        let items = parse_questions_views_and_links(&html, page);
         if items.is_empty() {
             continue;
         }
 
+        println!("Page {} has {} questions.", page, items.len());
+
         for item in items {
             writer.write_record(&[
+                item.page_number.to_string(),
                 item.title,
-                item.views.to_string(),
                 item.id.to_string(),
             ]).unwrap();
         }
+        break;
     }
 
     writer.flush().unwrap();
