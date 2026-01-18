@@ -11,50 +11,52 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 
 #[tokio::main]
 async fn main() {
-    // create output directory
-    create_dir_all("output")
+    // Create output directory
+    create_dir_all("output/with_html_content")
+        .unwrap();
+    create_dir_all("output/without_html_content")
         .unwrap();
 
-    // create web-client object
+    // Create web-client object
     let web_client = Client::new();
 
-    // create response object
+    // Create response object
     let page_response = web_client.get(BASE_URL.to_string())
         .header("User-Agent", USER_AGENT)
         .send()
         .await
         .unwrap();
 
-    // fetch page content as text
+    // Fetch page content as text
     let whole_page_content: String = page_response
         .text()
         .await
         .unwrap();
 
-    // parse the whole page content
+    // Parse the whole page content
     let whole_html_parse_document = scraper::Html::parse_document(&whole_page_content);
 
-    // select required block
+    // Select required block
     let required_block_selector = scraper::Selector::parse(REQURIED_BLOCK_SELECTOR)
         .unwrap();
 
-    // get required block element
+    // Get required block element
     let required_block_element = whole_html_parse_document
         .select(&required_block_selector)
         .next()
         .unwrap();
 
-    // get total question count
+    // Get total question count
     let total_question_selector = scraper::Selector::parse(TOTAL_QUESTION_SELECTOR)
         .unwrap();
 
-    // extract total question count
+    // Extract total question count
     let total_question_element = required_block_element
         .select(&total_question_selector)
         .next()
         .unwrap();
 
-    // parse total question count
+    // Parse total question count
     let total_question_count: usize = total_question_element
         .value()
         .attr("content")
@@ -62,19 +64,19 @@ async fn main() {
         .parse()
         .unwrap();
 
-    // find total pages count
+    // Find total pages count
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
 
-    // loop through all pages and store HTML content
+    // Loop through all pages and store HTML content
     for page in (1..=total_pages_count).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
-        // add random delay between 1 and 2 seconds
+        // Add random delay between 1 and 2 seconds
         let delay = rand::rng().random_range(1.0..2.0);
         sleep(Duration::from_secs_f64(delay))
             .await;
 
-        // fetch page HTML content
+        // Fetch page HTML content
         let page_response = web_client.get(&url)
             .header("User-Agent", USER_AGENT)
             .send()
@@ -82,14 +84,14 @@ async fn main() {
             .unwrap();
 
         if page_response.status() == 200 {
-            // convert response to text
+            // Convert response to text
             let page_html_content: String = page_response
                 .text()
                 .await
                 .unwrap();
 
-            // create and write to page file
-            let page_file_path: String = format!("output/{}.txt", page);
+            // Create and write to page file
+            let page_file_path: String = format!("output/with_html_content/{}.txt", page);
             let mut page_file = File::create(page_file_path)
                 .unwrap();
             page_file.write_all(page_html_content.as_bytes())
@@ -98,6 +100,16 @@ async fn main() {
             println!("Saved page {}", page);
         } else {
             println!("Failed to fetch page {}: status {}", page, page_response.status());
+            // Save the response to file
+            let page_file_path: String = format!("output/without_html_content/{}.txt", page);
+            let mut page_file = File::create(page_file_path)
+                .unwrap();
+            let page_html_content: String = page_response
+                .text()
+                .await
+                .unwrap();
+            page_file.write_all(page_html_content.as_bytes())
+                .unwrap();
         }
     }
 }
