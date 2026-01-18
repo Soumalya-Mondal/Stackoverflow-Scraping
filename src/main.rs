@@ -57,7 +57,6 @@ const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 struct QuestionRow {
     title: String,
     id: u64,
-    page_number: u64,
 }
 
 // -----------------------------
@@ -65,7 +64,7 @@ struct QuestionRow {
 // -----------------------------
 // Parses a page HTML and extracts question title + question ID + page number.
 // Returns Vec<QuestionRow> for downstream CSV writing.
-fn parse_questions_views_and_links(page_html: &str, page: u64) -> Vec<QuestionRow> {
+fn parse_questions_views_and_links(page_html: &str) -> Vec<QuestionRow> {
     // Parse raw HTML string into a structured DOM document.
     let doc = Html::parse_document(page_html);
 
@@ -119,7 +118,7 @@ fn parse_questions_views_and_links(page_html: &str, page: u64) -> Vec<QuestionRo
             .unwrap_or(0);
 
         // Push a strongly typed row into results.
-        results.push(QuestionRow { title, id, page_number: page });
+        results.push(QuestionRow { title, id });
     }
 
     // Return all extracted question rows from this page.
@@ -139,24 +138,16 @@ async fn main() {
     // Ensures CSV and lost-page logs can be written safely.
     fs::create_dir_all("output").unwrap();
 
-    // Delete existing CSV file if present
-    if fs::metadata("output/StackOverFlowQuestions.csv").is_ok() {
-        fs::remove_file("output/StackOverFlowQuestions.csv").unwrap();
+    // Create or clear the questions subdirectory
+    if fs::metadata("output/questions").is_ok() {
+        fs::remove_dir_all("output/questions").unwrap();
     }
+    fs::create_dir_all("output/questions").unwrap();
 
     // Delete existing LostPage.txt file if present
     if fs::metadata("output/LostPage.txt").is_ok() {
         fs::remove_file("output/LostPage.txt").unwrap();
     }
-
-    // Initialize CSV writer with UTF-8 BOM
-    // BOM helps some Windows Excel setups recognize UTF-8 correctly.
-    let mut file = fs::File::create("output/StackOverFlowQuestions.csv").unwrap();
-    file.write_all(&[0xEF, 0xBB, 0xBF]).unwrap(); // UTF-8 BOM
-    let mut writer = Writer::from_writer(file);
-
-    // Write CSV header row.
-    writer.write_record(["Page", "Question", "ID"]).unwrap();
 
     // Fetch first page to compute total pages
     // We need total question count to determine how many pages to crawl.
@@ -251,24 +242,33 @@ async fn main() {
         };
 
         // Extract question rows from this page using the parser helper.
-        let items = parse_questions_views_and_links(&html, page);
+        let items = parse_questions_views_and_links(&html);
         if items.is_empty() {
             // If parsing finds nothing, skip writing (page layout change or empty page).
             continue;
         }
 
-        // Write each extracted row to CSV.
+        // Create a new CSV file for this page
+        let csv_path: String = format!("output/questions/{}.csv", page);
+        let mut file = fs::File::create(&csv_path).unwrap();
+        file.write_all(&[0xEF, 0xBB, 0xBF]).unwrap(); // UTF-8 BOM
+        let mut writer = Writer::from_writer(file);
+
+        // Write CSV header row.
+        writer.write_record(["Question", "ID"]).unwrap();
+
+        // Write each extracted row to this page's CSV.
         // Convert numeric values to string because CSV writer expects string slices.
         for item in items {
             writer.write_record(&[
-                item.page_number.to_string(),
                 item.title,
                 item.id.to_string(),
             ]).unwrap();
         }
+
+        // Flush buffered output to disk to ensure CSV is complete.
+        writer.flush().unwrap();
+
         page_count += 1;
     }
-
-    // Flush buffered output to disk to ensure CSV is complete.
-    writer.flush().unwrap();
 }
