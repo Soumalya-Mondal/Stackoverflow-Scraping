@@ -198,8 +198,9 @@ async fn main() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
         // Random polite delay to reduce chances of throttling / blocking.
-        // The range (1.0..2.0) seconds mimics human browsing.
-        sleep(Duration::from_secs_f64(rand::rng().random_range(1.0..2.0))).await;
+        // The range (0.1..=1.9) seconds mimics human browsing.
+        sleep(Duration::from_secs_f64(rand::rng().random_range(0.1..=1.9)))
+            .await;
 
         // Perform the HTTP GET request and handle transport failures gracefully.
         let resp = match web_client
@@ -216,7 +217,7 @@ async fn main() {
         };
 
         // Add terminal output for successful fetches
-        println!("{} - PAGE: {}; RESPONSE: {}", page_count, page, resp.status());
+        println!("{:06} - PAGE: {}; RESPONSE: {}", page_count, page, resp.status());
 
         // If server returns non-2xx response, log it and save the page number.
         if !resp.status().is_success() {
@@ -268,7 +269,7 @@ async fn main() {
 
         // Flush buffered output to disk to ensure CSV is complete.
         writer.flush().unwrap();
-
+        // Increment page counter for logging.
         page_count += 1;
     }
 }
