@@ -25,6 +25,9 @@ use csv::Writer;
 // std::io::Write provides low-level write APIs (used for writing BOM and LostPage entries).
 use std::io::Write;
 
+// std::io::Read for reading LastPage.txt
+use std::io::Read;
+
 // -----------------------------
 // Constants (configuration)
 // -----------------------------
@@ -49,6 +52,9 @@ const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='
 // Selector for the question hyperlink (contains href).
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 
+// Maximum pages to process per run
+const PAGES_PER_RUN: u64 = 10;
+
 // -----------------------------
 // Data model for extracted rows
 // -----------------------------
@@ -57,6 +63,35 @@ const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 struct QuestionRow {
     title: String,
     id: u64,
+}
+
+// -----------------------------
+// LastPage tracking helpers
+// -----------------------------
+// Reads the last processed page number from LastPage.txt
+// Returns 0 if file doesn't exist or can't be read (start from beginning)
+fn read_last_page() -> u64 {
+    match fs::File::open("output/LastPage.txt") {
+        Ok(mut file) => {
+            let mut content = String::new();
+            if file.read_to_string(&mut content).is_ok() {
+                content
+                    .trim()
+                    .parse()
+                    .unwrap_or(0)
+            } else {
+                0
+            }
+        }
+        Err(_) => 0,
+    }
+}
+
+// Writes the current page number to LastPage.txt
+fn write_last_page(page: u64) {
+    if let Ok(mut file) = fs::File::create("output/LastPage.txt") {
+        let _ = writeln!(file, "{}", page);
+    }
 }
 
 // -----------------------------
@@ -136,18 +171,22 @@ async fn main() {
 
     // Create output directory if it doesn't exist
     // Ensures CSV and lost-page logs can be written safely.
-    fs::create_dir_all("output").unwrap();
+    fs::create_dir_all("output")
+        .unwrap();
 
-    // Create or clear the questions subdirectory
-    if fs::metadata("output/questions").is_ok() {
-        fs::remove_dir_all("output/questions").unwrap();
-    }
-    fs::create_dir_all("output/questions").unwrap();
+    // Create the questions subdirectory if it doesn't exist
+    fs::create_dir_all("output/questions")
+        .unwrap();
 
     // Delete existing LostPage.txt file if present
     if fs::metadata("output/LostPage.txt").is_ok() {
-        fs::remove_file("output/LostPage.txt").unwrap();
+        fs::remove_file("output/LostPage.txt")
+            .unwrap();
     }
+
+    // Read the last processed page (resume capability)
+    let last_processed_page = read_last_page();
+    println!("Last processed page: {}", last_processed_page);
 
     // Fetch first page to compute total pages
     // We need total question count to determine how many pages to crawl.
@@ -190,10 +229,29 @@ async fn main() {
     // div_ceil ensures partial pages count as one full page.
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
 
+    // Calculate starting page (last processed + 1, but in reverse order)
+    // Since we iterate in reverse, we need to calculate the correct starting point
+    let starting_page = if last_processed_page == 0 {
+        total_pages_count // Start from the last page if never run
+    } else if last_processed_page == 1 {
+        println!("All pages have been processed!");
+        return;
+    } else {
+        last_processed_page - 1 // Continue from where we left off
+    };
+
+    // Calculate ending page (process up to 200 pages)
+    let ending_page = if starting_page > PAGES_PER_RUN {
+        starting_page - PAGES_PER_RUN + 1
+    } else {
+        1 // Stop at page 1
+    };
+
+    println!("Processing pages {} to {} (total {} pages)", starting_page, ending_page, starting_page - ending_page + 1);
+
     // Iterate pages in reverse order (last page to first page).
-    // This pattern might be chosen to collect older questions first.
     let mut page_count: u64 = 1;
-    for page in (1..=total_pages_count).rev() {
+    for page in (ending_page..=starting_page).rev() {
         // Build URL for each page with fixed pagesize=50.
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
@@ -251,7 +309,12 @@ async fn main() {
 
         // Create a new CSV file for this page
         let csv_path: String = format!("output/questions/{}.csv", page);
-        let mut file = fs::File::create(&csv_path).unwrap();
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&csv_path)
+            .unwrap();
         file.write_all(&[0xEF, 0xBB, 0xBF]).unwrap(); // UTF-8 BOM
         let mut writer = Writer::from_writer(file);
 
@@ -269,7 +332,13 @@ async fn main() {
 
         // Flush buffered output to disk to ensure CSV is complete.
         writer.flush().unwrap();
+
+        // Save the current page as the last successfully processed page
+        write_last_page(page);
+
         // Increment page counter for logging.
         page_count += 1;
     }
+
+    println!("\nCompleted processing {} pages. Last page processed: {}", page_count - 1, ending_page);
 }
