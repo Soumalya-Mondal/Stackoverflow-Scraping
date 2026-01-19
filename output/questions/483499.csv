@@ -1,0 +1,51 @@
+﻿Question,ID
+What is a semaphore?,34519
+Natural Sorting algorithm,34518
+Is there a standard (like phpdoc or python's docstring) for commenting C# code?,34516
+What is a deadlock?,34512
+What is a race condition? [closed],34510
+Natural (human alpha-numeric) sort in Microsoft SQL 2005,34509
+Simulating a virtual static member of a class in c++?,34506
+Is Object.GetHashCode() unique to a reference or a value?,34505
+Excel: list ranges targeted by INDIRECT formulas,34493
+How do I create a SHA1 hash in ruby?,34490
+Does limiting a query to one record improve performance,34488
+What more is needed for Ajax than this function,34486
+What is in your JavaScript development toolbox?,34476
+Technical Hurdles for Win32 rsync port,34463
+Finding what methods a Python object has,34439
+How to Format Numbers in WinForms 1.1 DataGrid?,34428
+Why am I getting a NoClassDefFoundError in Java?,34413
+How do I generate a friendly URL in Symfony PHP?,34411
+Send email from Elmah?,34401
+How to dispay unordered list inline with bullets?,34399
+How should I model a field that can contain both numeric and string values in SQL Server 2005?,34398
+How do I truncate a string while converting to bytes in C#?,34395
+How would you abbriviate XHTML to an arbitrary number of words?,34394
+How to make user controls know about css classes in ASP.NET,34390
+Updating/Intercepting HttpContext.Current.Request.QueryString,34365
+What if analysis on multi dimensional cubes (OLAP),34362
+Finding your own number in a box,34345
+How do I make Windows aware of a service I have written in Python?,34328
+Should I use a cross-platform GUI-toolkit or rely on the native ones?,34325
+Do webtests need VS tester edition on the build server? [closed],34322
+How do I implement Search Functionality in a website? [closed],34314
+SimpleTest vs PHPunit,34312
+What types of testing do you include in your build process?,34304
+Multiple web-sites running in IIS simulatenously,34301
+Has .NET made raw COM and DCOM programming redundant?,34300
+64bit Memory allocation,34294
+Visually Tag/Mark a Window [closed],34286
+"How to fix build error in Visual Studio: '""LC.exe"" exited with code -1'",34284
+"COMException ""Library not registered."" while using System.DirectoryServices",34270
+Query TFS for updated files,34262
+Best algorithm to test if a linked list has a cycle,34249
+Python descriptor protocol analog in other languages?,34243
+How to hide the cancel button on an ASP.NET ChangePassword control,34237
+Is it possible to persist (without reloading) AJAX page state across BACK button clicks?,34227
+Django ImageField core=False in newforms admin,34209
+How do I get latest from a Visual Studio solution from the command line?,34204
+ASP.NET MVC on IIS6,34194
+C#.Net: Why is my Process.Start() hanging?,34183
+Alternatives for enhanced reading and parsing text files using .NET,34182
+"Delete Records from Access database, error while deleting",34161
