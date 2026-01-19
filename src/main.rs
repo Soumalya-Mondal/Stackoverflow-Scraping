@@ -53,7 +53,7 @@ const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 
 // Maximum pages to process per run
-const PAGES_PER_RUN: u64 = 10;
+const PAGES_PER_RUN: u64 = 100;
 
 // -----------------------------
 // Data model for extracted rows
