@@ -25,7 +25,7 @@ The scraper operates by starting from the most recent page of questions on Stack
 
 3.  **Scraping Loop**:
     - It processes pages in reverse chronological order (from newest to oldest).
-    - It scrapes a maximum of `10` pages per run to keep executions short and manageable.
+    - It scrapes a maximum of `500` pages per run to keep executions short and manageable.
     - For each page:
         - A random delay (0.1 to 1.9 seconds) is introduced.
         - The page HTML is fetched.
