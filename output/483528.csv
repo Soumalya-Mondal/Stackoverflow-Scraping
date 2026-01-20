@@ -1,0 +1,51 @@
+﻿Question,ID
+Get a list of available domains (NT4 and Active Directory),22265
+How do I resize and convert an uploaded image to a PNG using GD?,22259
+How do I change my workspace in Team Foundation Server 2005 and 2008?,22245
+Why does int main() {} compile? [duplicate],22239
+TClientDataSet Aggregates specification aren't added automatically when creating an Aggregate field,22212
+Web framework programming mindset [closed],22211
+Erlang-style Concurrency for Other Languages,22187
+ADO.NET Mapping From SQLDataReader to Domain Object?,22181
+Transactional Design Pattern,22165
+What is the difference between HttpHandler and a Web User Control and when to use each one?,22156
+Unicode vs UTF-8 confusion in Python / Django?,22149
+Calculating a cutting list with the least amount of off cut waste,22145
+Can you compile Apache HTTP Server and redeploy its binaries to a different location?,22140
+How do I use NTLM authentication with Active Directory,22135
+Using Regex to generate Strings rather than match them [closed],22115
+Difference between `/dev/ttyS0` and `/dev/ttys0`?,22106
+Controls versus standard HTML,22084
+MS Project Gantt chart control usage in C#,22067
+"How do content discovery engines, like Zemanta and Open Calais work?",22059
+OpenID as a Single Sign On option? [closed],22015
+Loading assemblies and its dependencies,22012
+Switching to ORMs,22011
+What's a 'null defined macro'?,22001
+Table cells larger than they are meant to be,22000
+WPF Anti aliasing workaround,21999
+XmlHttpRequest return values,21992
+FlashWindowEx FLASHW_STOP still keeps taskbar colored,21987
+Programmatically encrypting a config-file in .NET,21965
+Date/time conversion using time.mktime seems wrong,21961
+How do I compare two arrays of DataRow objects in PowerShell?,21956
+Is it really that bad to catch a general exception?,21938
+Why Java and Python garbage collection methods are different?,21934
+IntelliSense for XElement objects with XML schema,21912
+"""Silent"" Printing in a Web Application",21908
+"Where can I find a ""Math topic dependency tree"" to assist my self-guided refresher on the subject? [closed]",21879
+Dynamically Rendering asp:Image from BLOB entry in ASP.NET,21877
+System.Web.Caching vs. Enterprise Library Caching Block,21870
+Switch branch names in git,21848
+PostgreSQL: GIN or GiST indexes?,21830
+Why can't I declare static methods in an interface?,21817
+How to use BITS to download from a UNC path?,21753
+Multiple form Delphi applications and dialogs,21749
+Problems running Swing application with IDEA 8M1,21738
+List<BusinessObject> or BusinessObjectCollection?,21715
+What are the rules for naming AS3 classes?,21698
+How Do You Communicate Service Layer Messages/Errors to Higher Layers Using MVP?,21697
+Complexity of Regex substitution,21669
+Do you write exceptions for specific issues or general exceptions?,21652
+Adobe AIR: Handling JSON objects from server,21651
+Reading from text file until EOF repeats last line [duplicate],21647
