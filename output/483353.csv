@@ -1,0 +1,51 @@
+﻿Question,ID
+Is there any downside to redundant qualifiers? Any benefit?,99299
+How are virtual functions and vtable implemented?,99297
+Would it be useful to add extra info to stack traces?,99285
+How do you parse a web page and extract all the href links?,99279
+C# COM Office Automation - RPC_E_SYS_CALL_FAILED,99271
+What is the most common feature that demands the use of Visual Studio Professional over Standard?,99262
+RMI server: rmiregistry or LocateRegistry.createRegistry,99242
+Is there any way to get access to the DOM from Objective-C when using UIWebView?,99241
+How do I get Haml to work with Rails?,99211
+Should selecting by first letter show as many as possible that start with that letter?,99187
+Iterate with for loop or while loop?,99164
+How do you make Vim unhighlight what you searched for? [duplicate],99161
+"how to prevent ""directory already exists error"" in a makefile when using mkdir",99132
+Would Automatic Casts be useful?,99118
+MIPS - Is it important? [closed],99117
+Generate a current datestamp in Java,99098
+Would it be useful to have method return values for null objects?,99074
+copying data from production to test server without erasing schema,99059
+Getting BPL Versions at program startup,99057
+ASP.NET webforms + ASP.NET Ajax versus ASP.NET MVC and Ajax framework freedom,99056
+Having trouble achieving 1Gbit UDP throughput,99054
+Handling browser pop-up windows with Selenium,99045
+How do I have a socket accept connections only from the localhost (in Java)?,99020
+Report design using stored procedures in Report builder (SSRS)?,99013
+What is the best way to obtain a list of site resources when writing a Maven2 site plugin?,99012
+WCF netTCPBinding - Is transport encryption enough?,99001
+Are there any large-scale commercial projects that use Squeak Smalltalk?,98998
+Black-box vs White-box Reuse,98984
+How to generate a newline in a cpp macro?,98944
+wxWidgets: Detecting click event on custom controls,98941
+Managing the patch level of multiple windows systems [closed],98930
+programmatically find number of hosts in a Netmask,98916
+Pros and cons with Jaxer,98915
+What is the point of the Lowered* columns in asp.net membership tables?,98908
+Windows XP - Create Shortcuts on Desktop and controll their placement,98901
+IIS is returning 404 errors for ASPX pages that exist (aka DllRegisterServer entry point was not found),98895
+How does one elaborate design using CRC cards?,98878
+Where did the concept of Interfaces come from?,98867
+Information Hiding and Properties,98859
+Can the NetBeans code formatter be made to format javadoc comments?,98856
+Assign variables with a regular expression,98827
+Something wrong in the datetime format,98805
+Should I inject things into my entities?,98801
+Executing a script file from a Windows Installer Custom Action,98778
+Preallocating file space in C#?,98774
+How to Naturally/Numerically Sort a DataView?,98770
+Should I impose a maximum length on passwords?,98768
+Should entities have behavior or not?,98739
+FinalBuilder Enumeration of files and folders,98722
+Suggestions on how to add the functionality to import Finale music files on an application? [closed],98711
