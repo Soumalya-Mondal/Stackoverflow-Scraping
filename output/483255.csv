@@ -1,0 +1,51 @@
+﻿Question,ID
+"Targeting .NET Framework 3.5, Using .NET 2.0 Runtime. Caveats?",140239
+Reusable code / class Repositories,140224
+How do you use gdb to debug your code?,140217
+Combining split date ranges in a SQL query,140205
+Best method to have a C++ member function get called by a C callback ?,140204
+Regular expressions but for writing in the match,140182
+java.lang.String in jndi default context with Apache Geronimo - How?,140162
+What triggers ConstraintException when loading DataSet?,140161
+How to access Subversion from Oracle PL/SQL?,140153
+Deleting Windows performance counter categories,140149
+Creating a custom error page in Umbraco CMS,140137
+How would I raise an event (jQuery or vanilla Javascript) when a popup window is closed?,140133
+Convert a string representation of a hex dump to a byte array using Java?,140131
+Invoking Web Services From a Java Client,140127
+Available space left on drive - WinAPI - Windows CE,140117
+Reading hidden share in C#,140115
+Consume Webservice using https protocol,140113
+Sending an arbitrary Signal in Windows?,140111
+How can I return a custom HTTP status code from a WCF REST method?,140104
+Is MVC-ARS preferable to classic MVC to prevent overloading?,140098
+Where should a Subversion repository be?,140090
+When to use dynamic vs. static libraries,140061
+Java: Advice on handling large data volumes. (Part Deux),140056
+Using InstallUtil and silently setting a windows service logon username/password,140054
+AVR or PIC to start programming Microcontroller? [closed],140049
+RightNow CRM XML API - Anyone familiar with it?,140044
+Loop through all Resources in ResourceManager - C#,140043
+boost::shared_ptr standard container,140033
+Possible causes of Java VM EXCEPTION_ACCESS_VIOLATION?,140030
+Writing a Domain Specific Language for selecting rows from a table,140026
+Checking ftp return codes from Unix script,140012
+VBScript: How to utiliize a dictionary object returned from a function?,140002
+How do I change the Status labels in Bugzilla,140000
+How to best serialize a java.awt.Image?,139996
+prototyping functions in SML,139991
+How do I make my colleagues not despise SVN?,139989
+Do generic interfaces in C# prevent boxing? (.NET vs Mono performance),139979
+Committing a Directory to Subversion,139972
+SqlParameter Size - negative effects of setting to max size?,139971
+MSBuild directory structure limit workarounds,139964
+Need some ASP.NET MVC Routing Help,139954
+ASP.NET Validation Controls and Javascript Confirm boxes,139948
+Is there a buffered version of CComBSTR that makes string concatenation more efficient?,139927
+Regular expression to match common SQL syntax?,139926
+How to submit form with data before logging someone out?,139921
+Java Multicast Time To Live is always 0,139909
+What's the foolproof way to tell which version(s) of .NET are installed on a production Windows Server?,139891
+Multiple domains for one site: alias or redirect?,139889
+How do I disable referential integrity in Postgres 8.2?,139884
+Is there an open source java enum of ISO 3166-1 country codes,139867

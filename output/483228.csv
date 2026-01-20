@@ -1,0 +1,51 @@
+﻿Question,ID
+"Error ""set_paths: undefined method uid for nil:NilClass (NoMethodError)"" while installing RubyGems on Vista",150953
+How do you specify the port number in a oledb connection string to SQL server 2005?,150941
+Computer Science text book way to do text/xml/whatever parsing,150937
+What's the best way for a .NET windows forms application to update itself?,150935
+How do I password protect IIS in a method analogous to Apache's AuthType / AuthUserFile mechanism?,150923
+Hibernate -- load an object based on a member object's field,150902
+.Net Regex ValidationExpression ASCII,150901
+Windows Forms UserControl overrides not being called,150900
+Remove Duplicates with Caveats,150891
+Socket programming: Do some ISP's impose rate-limiting on FTP uploads?,150886
+What can cause mutated Word document attachements?,150881
+What IDEs and tools are available for C language development?,150876
+How to get JRE/JDK with matching source?,150849
+How can I create this action link?,150845
+Pentaho vs Microsoft BI Stack [closed],150825
+Strategies for Data Loading and DB Initialization for Integration Tests,150820
+How to handle an ActiveX event in Javascript,150814
+Best way to track down a memory leak (C#) only visible on one customer's box,150805
+Side effects of calling RegisterWindow multiple times with same window class?,150803
+Porting Android's Java VM to the iPhone?,150781
+Are regexes really maintainable?,150764
+How can I test if a list of files exist?,150762
+How to remove duplicate rows from flat file using SSIS?,150760
+How to avoid heap fragmentation?,150753
+HashSet vs. List performance,150750
+What exceptions might a Python function raise? [duplicate],150743
+How do you generate a good ID in ATOM documents?,150741
+How much Application session data can you actually hold?,150739
+How do you install an ssh server on qnx?,150737
+Getting the GUID of a VS 2008 tool window,150735
+What is the best way to write to a file in Ruby? [closed],150731
+C++ having cin read a return character,150726
+Is there any Visual Library alternative to wxPython that supports CSS/Style Sheets?,150705
+Sun Solaris IDE/Source Control Choices,150698
+Where are all the places Sql Reporting Server Logs Errors?,150695
+Find the prefix substring which gives best compression,150690
+AJAX.NET Subscribe to Reorderlist ItemCommand or DeleteCommand?,150687
+"Do you use Microformats, RDF, Dublin Core or another type of semantic markup? [closed]",150669
+How to create a custom log filter in enterprise library 4.0?,150666
+Java obfuscation - ProGuard/yGuard/other? [closed],150653
+How Do I Create a New Excel File Using JXL?,150646
+When ThreadPool.QueueUserWorkItem returns false,150645
+Ruby off the rails,150638
+How to select from Varchar where where `Value` is not part of a group,150622
+Selecting unique rows in a set of two possibilities,150610
+JavaScript highlight table cell on tab in field,150606
+How much difference does BLOB or TEXT make in comparison with VARCHAR()?,150588
+When to use IEnumerable over IEnumerable<>,150581
+Which browser has the best support for HTML 5 currently? [closed],150577
+How to find out if a Timer is running?,150575
