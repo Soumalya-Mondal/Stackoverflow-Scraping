@@ -20,7 +20,7 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 const QUESTION_BLOCK_SELECTOR: &str = "div.s-post-summary.js-post-summary";
 const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='name']";
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
-const PAGES_PER_RUN: u64 = 200;
+const PAGES_PER_RUN: u64 = 10;
 
 // ============================================================================
 // Data Structures
@@ -171,7 +171,7 @@ async fn main() {
         1
     };
 
-    println!("- Processing Pages {} To {}", starting_page, ending_page);
+    println!("- Processing Pages {} To {} [{}-Pages]\n", starting_page, ending_page, PAGES_PER_RUN);
 
     let mut page_count: u64 = 1;
     for page in (ending_page..=starting_page).rev() {
@@ -193,7 +193,7 @@ async fn main() {
             }
         };
 
-        println!("{:03} - Page: {}; Response: {}", page_count, page, resp.status());
+        println!("- [{:03}/{}] Page: {}; Response: {}", page_count, PAGES_PER_RUN, page, resp.status());
 
         if !resp.status().is_success() {
             eprintln!("{} - Failed Page {}: Status {}", page_count, page, resp.status());
