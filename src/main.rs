@@ -118,12 +118,26 @@ fn log_to_file(message: &str) {
 }
 
 // ============================================================================
-// Get Last Processed Page From Database Function
+// Get Last Processed Page From File Function
 // ============================================================================
-fn get_last_processed_page(conn: &Connection) -> rusqlite::Result<i64> {
-    let mut stmt = conn.prepare("SELECT MIN(page_no) FROM stackoverflow_questions")?;
-    let last_page: Option<i64> = stmt.query_row([], |row| row.get(0))?;
-    Ok(last_page.unwrap_or(0))
+fn get_last_processed_page_from_file() -> i64 {
+    match fs::read_to_string("output/LastPage.txt") {
+        Ok(content) => content.trim().parse().unwrap_or(0),
+        Err(_) => 0,
+    }
+}
+
+// ============================================================================
+// Save Last Processed Page To File Function
+// ============================================================================
+fn save_last_page_to_file(page: u64) {
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open("output/LastPage.txt")
+        .unwrap();
+    writeln!(file, "{}", page).unwrap();
 }
 
 // ============================================================================
@@ -173,25 +187,16 @@ async fn main() {
         .unwrap();
 
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
+    let last_processed_page = get_last_processed_page_from_file() as u64;
 
-    let last_processed_page = get_last_processed_page(&conn)
-        .expect("Failed to get last processed page") as u64;
-
-    let start_page = if last_processed_page == 0 {
-        total_pages_count
-    } else {
-        last_processed_page + 1
-    };
-
-    let end_page = if start_page > PAGES_PER_RUN {
-        start_page - PAGES_PER_RUN + 1
-    } else {
-        1
-    };
+    let start_page = if last_processed_page == 0 { total_pages_count } else { last_processed_page + 1 };
+    let end_page = std::cmp::max(1, start_page.saturating_sub(PAGES_PER_RUN - 1));
 
     println!("- Processing Pages {} to {}\n", end_page, start_page);
 
     let mut page_count: u8 = 1;
+    let mut last_page_processed = start_page;
+
     for page in (end_page..=start_page).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
@@ -207,6 +212,7 @@ async fn main() {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Failed To Fetch Page {}: {}", page, e);
+                page_count += 1;
                 continue;
             }
         };
@@ -222,6 +228,7 @@ async fn main() {
                 .open("output/LostPage.txt")
                 .unwrap();
             writeln!(file, "{}", page).unwrap();
+            page_count += 1;
             continue;
         }
 
@@ -229,12 +236,14 @@ async fn main() {
             Ok(t) => t,
             Err(e) => {
                 eprintln!("Failed To Read HTML Page {}: {}", page, e);
+                page_count += 1;
                 continue;
             }
         };
 
         let items = parse_questions_views_and_links(&html);
         if items.is_empty() {
+            page_count += 1;
             continue;
         }
 
@@ -259,8 +268,12 @@ async fn main() {
                 Err(e) => eprintln!("Failed To Insert Question {}: {}", item.id, e),
             }
         }
+
+        last_page_processed = page;
         page_count += 1;
     }
+
+    save_last_page_to_file(last_page_processed);
 
     println!("\n- Completed Processing Pages {} to {}", end_page, start_page);
 }
