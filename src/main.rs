@@ -6,7 +6,7 @@ use rand::Rng;
 use tokio::time::{sleep, Duration};
 use scraper::{Html, Selector};
 use std::fs;
-use csv::Writer;
+use rusqlite::{Connection, params};
 use std::io::Write;
 
 // ============================================================================
@@ -19,6 +19,7 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 const QUESTION_BLOCK_SELECTOR: &str = "div.s-post-summary.js-post-summary";
 const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='name']";
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
+const DB_PATH: &str = "output/stackoverflow.db";
 
 // ============================================================================
 // Data Structures
@@ -26,7 +27,33 @@ const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 #[derive(Debug, Clone)]
 struct QuestionRow {
     title: String,
-    id: u64,
+    id: i64,
+}
+
+// ============================================================================
+// Initialize Database Function
+// ============================================================================
+fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
+    let mut stmt = conn.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?1"
+    )?;
+    let exists = stmt.exists([table_name])?;
+    Ok(exists)
+}
+
+fn init_database(conn: &Connection) -> rusqlite::Result<()> {
+    if !table_exists(conn, "stackoverflow_questions")? {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS stackoverflow_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                page_no INTEGER NOT NULL,
+                q_id INTEGER NOT NULL UNIQUE,
+                question TEXT NOT NULL
+            )",
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 // ============================================================================
@@ -65,7 +92,7 @@ fn parse_questions_views_and_links(page_html: &str) -> Vec<QuestionRow> {
             .unwrap_or("")
             .to_string();
 
-        let id: u64 = href
+        let id: i64 = href
             .split('/')
             .nth(2)
             .and_then(|s| s.parse().ok())
@@ -78,6 +105,18 @@ fn parse_questions_views_and_links(page_html: &str) -> Vec<QuestionRow> {
 }
 
 // ============================================================================
+// Log Message To File Function
+// ============================================================================
+fn log_to_file(message: &str) {
+    let mut file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("output/ScrapingLog.txt")
+        .unwrap();
+    writeln!(file, "{}", message).unwrap();
+}
+
+// ============================================================================
 // Main Async Function
 // ============================================================================
 #[tokio::main]
@@ -86,6 +125,12 @@ async fn main() {
 
     fs::create_dir_all("output")
         .unwrap();
+
+    let conn = Connection::open(DB_PATH)
+        .expect("Failed to open database");
+
+    init_database(&conn)
+        .expect("Failed to initialize database");
 
     let page_response = web_client
         .get(BASE_URL)
@@ -167,26 +212,27 @@ async fn main() {
             continue;
         }
 
-        let csv_path: String = format!("output/{}.csv", page);
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&csv_path)
-            .unwrap();
-        file.write_all(&[0xEF, 0xBB, 0xBF]).unwrap();
-        let mut writer = Writer::from_writer(file);
-
-        writer.write_record(["Question", "ID"]).unwrap();
-
         for item in items {
-            writer.write_record(&[
-                item.title,
-                item.id.to_string(),
-            ]).unwrap();
-        }
+            // Check if "q_id" already exists
+            let mut stmt = conn.prepare("SELECT id FROM stackoverflow_questions WHERE q_id = ?1")
+                .expect("Failed To Prepare Statement");
+            let existing_id: Result<i64, _> = stmt.query_row([item.id], |row| row.get(0));
 
-        writer.flush().unwrap();
+            if let Ok(prev_id) = existing_id {
+                log_to_file(&format!("Question-ID: {:06} Already Exists With Old-ID: {:06}", item.id, prev_id));
+                continue;
+            }
+
+            let title_utf8 = String::from_utf8_lossy(item.title.as_bytes()).to_string();
+
+            match conn.execute(
+                "INSERT INTO stackoverflow_questions (page_no, q_id, question) VALUES (?1, ?2, ?3)",
+                params![page as i64, item.id, &title_utf8],
+            ) {
+                Ok(_) => {},
+                Err(e) => eprintln!("Failed To Insert Question {}: {}", item.id, e),
+            }
+        }
     }
 
     println!("\n- Completed Processing All Pages");
