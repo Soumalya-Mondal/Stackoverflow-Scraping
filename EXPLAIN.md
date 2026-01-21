@@ -18,7 +18,7 @@
 - `TITLE_SELECTOR` - CSS selector for question titles.
 - `LINK_SELECTOR` - CSS selector for question links/hrefs.
 - `DB_PATH` - Path to the SQLite database file.
-- `PAGES_PER_RUN` - Maximum number of pages to scrape per execution (default: 10).
+- `PAGES_PER_RUN` - Maximum number of pages to scrape per execution (default: 500).
 
 ## Data Structure (Lines 21-25)
 ```rust
@@ -37,12 +37,10 @@ Represents a single question with its title and Stack Overflow ID.
 
 ### Function: `init_database()`
 - Initializes the database.
-- If the `stackoverflow_questions` table doesn't exist, it creates it with columns: `id` (primary key), `page_no`, `q_id` (unique question ID), and `question` (title).
+- If the `stackoverflow_questions` table doesn't exist, it creates it with columns: `id` (primary key), `q_id` (unique question ID), and `question` (title).
 
 ### Function: `get_last_processed_page()`
-- Queries the database to retrieve the minimum (lowest) page number that has been processed.
-- Returns 0 if no pages have been processed yet (indicating this is the first run).
-- Used to determine where to resume scraping on subsequent runs.
+- This function has been removed. The scraper now uses a file (`output/LastPage.txt`) to track the last processed page.
 
 ## Function: `parse_questions_views_and_links()` (Lines 59-101)
 Extracts questions from an HTML page string:
@@ -57,8 +55,17 @@ Extracts questions from an HTML page string:
 5. Returns a `Vec<QuestionRow>` of all extracted questions.
 
 ## Function: `log_to_file()` (Lines 103-111)
-- Appends a given message to `output/ScrapingLog.txt`.
-- Used for logging when a duplicate question ID is found.
+- This function has been removed. Duplicate question IDs are now silently skipped.
+
+## New File I/O Functions
+
+### Function: `get_last_processed_page_from_file()`
+- Reads the last processed page number from `output/LastPage.txt`.
+- Returns `0` if the file doesn't exist or is empty.
+
+### Function: `save_last_page_to_file()`
+- Saves the given page number to `output/LastPage.txt`, overwriting its content.
+- This is called after each page is successfully processed.
 
 ## Main Function (Lines 113-227)
 
@@ -74,11 +81,11 @@ Extracts questions from an HTML page string:
 - Calculates the total number of pages by dividing the total questions by 50 (questions per page).
 
 ### Calculate Page Range (Lines 155-169)
-- Calls `get_last_processed_page()` to retrieve the minimum page number already in the database.
+- Calls `get_last_processed_page_from_file()` to retrieve the last page number processed in a previous run.
 - If no data exists (returns 0), `start_page` is set to `total_pages_count` (the last page).
 - Otherwise, `start_page` is set to `last_processed_page + 1` (resuming from the next unprocessed page).
 - `end_page` is calculated as `start_page - PAGES_PER_RUN + 1`, but never goes below 1.
-- This ensures exactly `PAGES_PER_RUN` pages are processed per run (or fewer if reaching page 1).
+- This ensures up to `PAGES_PER_RUN` pages are processed per run (or fewer if reaching page 1).
 
 ### Process Pages in Reverse (Lines 171-227)
 Iterates through pages from `start_page` down to `end_page` in reverse order:
@@ -101,8 +108,10 @@ Iterates through pages from `start_page` down to `end_page` in reverse order:
 
 7.  **Insert into Database** - For each extracted question:
     - It first checks if the question ID (`q_id`) already exists in the database to prevent duplicates.
-    - If it exists, it logs the duplicate detection to `ScrapingLog.txt` and skips it.
-    - If it's a new question, it inserts the page number, question ID, and title into the `stackoverflow_questions` table.
+    - If it exists, it silently skips the question.
+    - If it's a new question, it inserts the question ID and title into the `stackoverflow_questions` table.
+
+8.  **Save Progress** - After processing all questions on a page, it calls `save_last_page_to_file()` to update the last processed page number in `output/LastPage.txt`.
 
 ### Final Summary (Line 229)
 Prints a completion message indicating which page range was processed.
@@ -110,13 +119,14 @@ Prints a completion message indicating which page range was processed.
 ## Execution Flow Summary
 1.  Initialize database connection and create table if needed.
 2.  Fetch the first page of Stack Overflow to determine the total number of pages.
-3.  Query the database to find the last processed page and calculate the range to process.
+3.  Read `output/LastPage.txt` to find the last processed page and calculate the range to process for the current run.
 4.  Iterate through the calculated page range in reverse order (up to `PAGES_PER_RUN` pages).
 5.  For each page:
     - Fetch the HTML with a polite delay.
     - Parse questions from the HTML.
     - For each question, check for existence in the database.
     - Insert new questions into the SQLite database.
-6.  Log errors and duplicate entries.
+    - Update `output/LastPage.txt` with the current page number.
+6.  Log errors for failed page fetches.
 7.  Report completion with the processed page range.
-8.  On the next execution, resume from where the previous run left off.
+8.  On the next execution, resume from where the previous run left off based on the page number in `output/LastPage.txt`.

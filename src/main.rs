@@ -20,7 +20,7 @@ const QUESTION_BLOCK_SELECTOR: &str = "div.s-post-summary.js-post-summary";
 const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='name']";
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 const DB_PATH: &str = "output/stackoverflow.db";
-const PAGES_PER_RUN: u64 = 10;
+const PAGES_PER_RUN: u64 = 500;
 
 // ============================================================================
 // Data Structures
@@ -47,7 +47,6 @@ fn init_database(conn: &Connection) -> rusqlite::Result<()> {
         conn.execute(
             "CREATE TABLE IF NOT EXISTS stackoverflow_questions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                page_no INTEGER NOT NULL,
                 q_id INTEGER NOT NULL UNIQUE,
                 question TEXT NOT NULL
             )",
@@ -103,18 +102,6 @@ fn parse_questions_views_and_links(page_html: &str) -> Vec<QuestionRow> {
     }
 
     results
-}
-
-// ============================================================================
-// Log Message To File Function
-// ============================================================================
-fn log_to_file(message: &str) {
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("output/ScrapingLog.txt")
-        .unwrap();
-    writeln!(file, "{}", message).unwrap();
 }
 
 // ============================================================================
@@ -192,10 +179,10 @@ async fn main() {
     let start_page = if last_processed_page == 0 { total_pages_count } else { last_processed_page + 1 };
     let end_page = std::cmp::max(1, start_page.saturating_sub(PAGES_PER_RUN - 1));
 
-    println!("- Processing Pages {} to {}\n", end_page, start_page);
+    println!("- Processing Pages {} to {}\n", start_page, end_page);
 
-    let mut page_count: u8 = 1;
-    let mut last_page_processed = start_page;
+    let mut page_count: u16 = 1;
+    let mut last_processed_page: u64;
 
     for page in (end_page..=start_page).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
@@ -253,27 +240,25 @@ async fn main() {
                 .expect("Failed To Prepare Statement");
             let existing_id: Result<i64, _> = stmt.query_row([item.id], |row| row.get(0));
 
-            if let Ok(prev_id) = existing_id {
-                log_to_file(&format!("Question-ID: {:06} Already Exists With Old-ID: {:06}", item.id, prev_id));
+            if existing_id.is_ok() {
                 continue;
             }
 
             let title_utf8 = String::from_utf8_lossy(item.title.as_bytes()).to_string();
 
             match conn.execute(
-                "INSERT INTO stackoverflow_questions (page_no, q_id, question) VALUES (?1, ?2, ?3)",
-                params![page as i64, item.id, &title_utf8],
+                "INSERT INTO stackoverflow_questions (q_id, question) VALUES (?1, ?2)",
+                params![item.id, &title_utf8],
             ) {
                 Ok(_) => {},
                 Err(e) => eprintln!("Failed To Insert Question {}: {}", item.id, e),
             }
         }
 
-        last_page_processed = page;
+        last_processed_page = page;
+        save_last_page_to_file(last_processed_page);
         page_count += 1;
     }
 
-    save_last_page_to_file(last_page_processed);
-
-    println!("\n- Completed Processing Pages {} to {}", end_page, start_page);
+    println!("\n- Completed Processing Pages {} to {}", start_page, end_page);
 }
