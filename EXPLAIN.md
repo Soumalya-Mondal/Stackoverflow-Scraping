@@ -1,124 +1,107 @@
 # Stackoverflow Scraper - Line by Line Explanation
 
-## Imports (Lines 1-7)
-- `use reqwest::Client;` - HTTP client for making web requests
-- `use rand::Rng;` - Random number generation for delays
-- `use tokio::time::{sleep, Duration};` - Async sleep functionality
-- `use scraper::{Html, Selector};` - HTML parsing and CSS selector matching
-- `use std::fs;` - File system operations
-- `use csv::Writer;` - CSV file writing
-- `use std::io::{Write, Read};` - Basic I/O operations
+## Imports (Lines 1-9)
+- `use reqwest::Client;` - HTTP client for making web requests.
+- `use rand::Rng;` - Random number generation for delays.
+- `use tokio::time::{sleep, Duration};` - Async sleep functionality.
+- `use scraper::{Html, Selector};` - HTML parsing and CSS selector matching.
+- `use std::fs;` - File system operations (for creating output directory and log file).
+- `use rusqlite::{Connection, params};` - SQLite database connection and operations.
+- `use std::io::Write;` - Basic I/O operations (for logging).
 
-## Constants (Lines 9-17)
-- `BASE_URL` - Stack Overflow questions page URL
-- `REQUIRED_BLOCK_SELECTOR` - CSS selector for the questions container
-- `TOTAL_QUESTION_SELECTOR` - CSS selector for total question count metadata
-- `USER_AGENT` - Browser user agent string to avoid blocking
-- `QUESTION_BLOCK_SELECTOR` - CSS selector for individual question blocks
-- `TITLE_SELECTOR` - CSS selector for question titles
-- `LINK_SELECTOR` - CSS selector for question links/hrefs
-- `PAGES_PER_RUN` - Maximum pages to process per execution (100)
+## Constants (Lines 11-18)
+- `BASE_URL` - Stack Overflow questions page URL.
+- `REQUIRED_BLOCK_SELECTOR` - CSS selector for the main questions container.
+- `TOTAL_QUESTION_SELECTOR` - CSS selector for total question count metadata.
+- `USER_AGENT` - Browser user agent string to avoid blocking.
+- `QUESTION_BLOCK_SELECTOR` - CSS selector for individual question blocks.
+- `TITLE_SELECTOR` - CSS selector for question titles.
+- `LINK_SELECTOR` - CSS selector for question links/hrefs.
+- `DB_PATH` - Path to the SQLite database file.
 
-## Data Structure (Lines 19-22)
+## Data Structure (Lines 20-24)
 ```rust
 #[derive(Debug, Clone)]
 struct QuestionRow {
     title: String,
-    id: u64,
+    id: i64,
 }
 ```
-Represents a single question with title and ID for CSV output.
+Represents a single question with its title and Stack Overflow ID.
 
-## Function: read_last_page() (Lines 24-37)
-Reads the last processed page number from `output/LastPage.txt`:
-- Opens the file if it exists
-- Parses the content as a u64 number
-- Returns 0 if file doesn't exist (starts fresh)
-- Returns 0 if parsing fails
+## Database Functions (Lines 26-47)
 
-## Function: write_last_page(page: u64) (Lines 39-42)
-Writes the current page number to `output/LastPage.txt`:
-- Creates or overwrites the file
-- Writes the page number for resuming later
+### Function: `table_exists()`
+- Checks if a table with a given name exists in the SQLite database.
 
-## Function: parse_questions_views_and_links() (Lines 44-83)
-Extracts questions from HTML page:
-1. Parses HTML string into a DOM document
-2. Compiles CSS selectors for efficiency
-3. Finds the main questions container
+### Function: `init_database()`
+- Initializes the database.
+- If the `stackoverflow_questions` table doesn't exist, it creates it with columns: `id` (primary key), `page_no`, `q_id` (unique question ID), and `question` (title).
+
+## Function: `parse_questions_views_and_links()` (Lines 49-91)
+Extracts questions from an HTML page string:
+1. Parses the HTML into a DOM document.
+2. Compiles CSS selectors for efficiency.
+3. Finds the main questions container.
 4. Iterates through each question block:
-   - Extracts title text
-   - Skips empty titles
-   - Extracts href attribute from link
-   - Parses question ID from href (e.g., `/questions/12345/...` → `12345`)
-   - Creates QuestionRow and adds to results
-5. Returns Vec of all extracted questions
+   - Extracts the title text.
+   - Extracts the href attribute from the link.
+   - Parses the question ID from the href (e.g., `/questions/12345/...` → `12345`).
+   - Creates a `QuestionRow` and adds it to a results vector.
+5. Returns a `Vec<QuestionRow>` of all extracted questions.
 
-## Main Function (Lines 85-200)
+## Function: `log_to_file()` (Lines 93-101)
+- Appends a given message to `output/ScrapingLog.txt`.
+- Used for logging when a duplicate question ID is found.
 
-### Setup (Lines 88-94)
-- Creates HTTP client for connection pooling
-- Creates `output/` directory
-- Creates `output/questions-id/` directory for CSV files
-- Reads last processed page from file
+## Main Function (Lines 103-201)
 
-### Fetch First Page Metadata (Lines 96-118)
-- Makes GET request to Stack Overflow base URL
-- Parses HTML response
-- Finds total question count from metadata
-- Calculates total pages (dividing by 50, the page size)
+### Setup (Lines 106-115)
+- Creates an HTTP client.
+- Creates the `output/` directory.
+- Opens a connection to the SQLite database at `DB_PATH`.
+- Calls `init_database()` to ensure the table exists.
 
-### Calculate Page Range (Lines 120-139)
-- If never run before: start from last page
-- If already processed all pages: exit
-- Otherwise: start from previous page - 1
-- Calculate ending page based on `PAGES_PER_RUN` limit
-- Prints processing range to console
+### Fetch Metadata (Lines 117-143)
+- Makes a GET request to the Stack Overflow base URL to get the first page.
+- Parses the HTML to find the total number of questions from a metadata tag.
+- Calculates the total number of pages by dividing the total questions by 50 (questions per page).
 
-### Process Pages in Reverse (Lines 141-200)
-For each page from `ending_page` down to `starting_page`:
+### Process Pages in Reverse (Lines 145-201)
+Iterates through every page from the last page down to the first:
 
-1. **Build URL** - Format with page number and pagesize=50
+1.  **Build URL** - Formats the URL for the current page number with `pagesize=50`.
 
-2. **Add Random Delay** - Sleep 0.1 to 1.9 seconds (polite scraping)
+2.  **Add Random Delay** - Sleeps for a random duration between 0.1 and 1.9 seconds to be a polite scraper.
 
-3. **Fetch Page** - Make HTTP GET request with User-Agent header
-   - If network error: print error and continue to next page
+3.  **Fetch Page** - Makes an HTTP GET request with the `User-Agent` header.
+    - If there's a network error, it prints the error and continues to the next page.
 
-4. **Log Response Status** - Print page number and HTTP status code
+4.  **Log Response Status** - Prints the current page number and the HTTP status of the response.
 
-5. **Handle Failed Requests** - If status code is not successful:
-   - Print error message
-   - Append page number to `output/LostPage.txt` for retry
-   - Continue to next page
+5.  **Handle Failed Requests** - If the HTTP status is not successful:
+    - Prints an error.
+    - Appends the failed page number to `output/LostPage.txt` for manual review.
+    - Continues to the next page.
 
-6. **Read Response Body** - Convert response to HTML string
-   - If read error: print error and continue
+6.  **Parse Questions** - Reads the response body as text and calls `parse_questions_views_and_links()` to extract question data.
 
-7. **Parse Questions** - Call parser function to extract questions
-   - If no questions found: skip to next page
+7.  **Insert into Database** - For each extracted question:
+    - It first checks if the question ID (`q_id`) already exists in the database to prevent duplicates.
+    - If it exists, it logs the duplicate detection to `ScrapingLog.txt` and skips it.
+    - If it's a new question, it inserts the page number, question ID, and title into the `stackoverflow_questions` table.
 
-8. **Write CSV File** - Create `output/questions-id/{page}.csv`:
-   - Write UTF-8 BOM (3 bytes: 0xEF, 0xBB, 0xBF)
-   - Create CSV writer
-   - Write header row: "Question", "ID"
-   - Write each question with title and ID
-   - Flush to disk
-
-9. **Update Last Page** - Save current page number for resume
-
-10. **Increment Counter** - Track processed pages
-
-### Final Summary (Line 202)
-Prints total pages processed and last page number processed.
+### Final Summary (Line 203)
+Prints a completion message after iterating through all pages.
 
 ## Execution Flow Summary
-1. Resume from last known page or start from the end
-2. Fetch Stack Overflow to get total question count
-3. Calculate page range to process (max 100 pages per run)
-4. For each page (in reverse order):
-   - Fetch HTML with polite delay
-   - Parse questions from HTML
-   - Save to individual CSV file
-   - Track last page in case of interruption
-5. Report completion statistics
+1.  Initialize database connection and create table if needed.
+2.  Fetch the first page of Stack Overflow to determine the total number of pages.
+3.  Iterate through all pages in reverse order (from last to first).
+4.  For each page:
+    - Fetch the HTML with a polite delay.
+    - Parse questions from the HTML.
+    - For each question, check for existence in the database.
+    - Insert new questions into the SQLite database.
+5.  Log errors and duplicate entries.
+6.  Report completion.
