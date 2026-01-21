@@ -20,6 +20,7 @@ const QUESTION_BLOCK_SELECTOR: &str = "div.s-post-summary.js-post-summary";
 const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='name']";
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
 const DB_PATH: &str = "output/stackoverflow.db";
+const PAGES_PER_RUN: u64 = 10;
 
 // ============================================================================
 // Data Structures
@@ -117,6 +118,15 @@ fn log_to_file(message: &str) {
 }
 
 // ============================================================================
+// Get Last Processed Page From Database Function
+// ============================================================================
+fn get_last_processed_page(conn: &Connection) -> rusqlite::Result<i64> {
+    let mut stmt = conn.prepare("SELECT MIN(page_no) FROM stackoverflow_questions")?;
+    let last_page: Option<i64> = stmt.query_row([], |row| row.get(0))?;
+    Ok(last_page.unwrap_or(0))
+}
+
+// ============================================================================
 // Main Async Function
 // ============================================================================
 #[tokio::main]
@@ -164,9 +174,25 @@ async fn main() {
 
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
 
-    println!("- Processing All {} Pages\n", total_pages_count);
+    let last_processed_page = get_last_processed_page(&conn)
+        .expect("Failed to get last processed page") as u64;
 
-    for page in (1..=total_pages_count).rev() {
+    let start_page = if last_processed_page == 0 {
+        total_pages_count
+    } else {
+        last_processed_page + 1
+    };
+
+    let end_page = if start_page > PAGES_PER_RUN {
+        start_page - PAGES_PER_RUN + 1
+    } else {
+        1
+    };
+
+    println!("- Processing Pages {} to {}\n", end_page, start_page);
+
+    let mut page_count: u8 = 1;
+    for page in (end_page..=start_page).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
         sleep(Duration::from_secs_f64(rand::rng().random_range(0.1..=1.9)))
@@ -185,7 +211,7 @@ async fn main() {
             }
         };
 
-        println!("- Page: {}; Response: {}", page, resp.status());
+        println!("[{:03}/{:03}] - Page: {}; Response: {}", page_count, PAGES_PER_RUN, page, resp.status());
 
         if !resp.status().is_success() {
             eprintln!("Failed Page {}: Status {}", page, resp.status());
@@ -233,7 +259,8 @@ async fn main() {
                 Err(e) => eprintln!("Failed To Insert Question {}: {}", item.id, e),
             }
         }
+        page_count += 1;
     }
 
-    println!("\n- Completed Processing All Pages");
+    println!("\n- Completed Processing Pages {} to {}", end_page, start_page);
 }
