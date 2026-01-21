@@ -8,7 +8,6 @@ use scraper::{Html, Selector};
 use std::fs;
 use csv::Writer;
 use std::io::Write;
-use std::io::Read;
 
 // ============================================================================
 // Constants
@@ -20,7 +19,6 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 const QUESTION_BLOCK_SELECTOR: &str = "div.s-post-summary.js-post-summary";
 const TITLE_SELECTOR: &str = "h3.s-post-summary--content-title a span[itemprop='name']";
 const LINK_SELECTOR: &str = "h3.s-post-summary--content-title a.s-link";
-const PAGES_PER_RUN: u64 = 500;
 
 // ============================================================================
 // Data Structures
@@ -29,35 +27,6 @@ const PAGES_PER_RUN: u64 = 500;
 struct QuestionRow {
     title: String,
     id: u64,
-}
-
-// ============================================================================
-// Read Last Page From File Function
-// ============================================================================
-fn read_last_page() -> u64 {
-    match fs::File::open("output/LastPage.txt") {
-        Ok(mut file) => {
-            let mut content = String::new();
-            if file.read_to_string(&mut content).is_ok() {
-                content
-                    .trim()
-                    .parse()
-                    .unwrap_or(0)
-            } else {
-                0
-            }
-        }
-        Err(_) => 0,
-    }
-}
-
-// ============================================================================
-// Write Last Page To File Function
-// ============================================================================
-fn write_last_page(page: u64) {
-    if let Ok(mut file) = fs::File::create("output/LastPage.txt") {
-        let _ = writeln!(file, "{}", page);
-    }
 }
 
 // ============================================================================
@@ -118,12 +87,6 @@ async fn main() {
     fs::create_dir_all("output")
         .unwrap();
 
-    fs::create_dir_all("output/questions-id")
-        .unwrap();
-
-    let last_processed_page = read_last_page();
-    println!("- Last Processed Page: {}", last_processed_page);
-
     let page_response = web_client
         .get(BASE_URL)
         .header("User-Agent", USER_AGENT)
@@ -156,25 +119,9 @@ async fn main() {
 
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
 
-    let starting_page = if last_processed_page == 0 {
-        total_pages_count
-    } else if last_processed_page == 1 {
-        println!("- All Pages Have Been Processed!");
-        return;
-    } else {
-        last_processed_page - 1
-    };
+    println!("- Processing All {} Pages\n", total_pages_count);
 
-    let ending_page = if starting_page > PAGES_PER_RUN {
-        starting_page - PAGES_PER_RUN + 1
-    } else {
-        1
-    };
-
-    println!("- Processing Pages {} To {} [{}-Pages]\n", starting_page, ending_page, PAGES_PER_RUN);
-
-    let mut page_count: u64 = 1;
-    for page in (ending_page..=starting_page).rev() {
+    for page in (1..=total_pages_count).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
         sleep(Duration::from_secs_f64(rand::rng().random_range(0.1..=1.9)))
@@ -188,15 +135,15 @@ async fn main() {
         {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("{} - Failed To Fetch Page {}: {}", page_count, page, e);
+                eprintln!("Failed To Fetch Page {}: {}", page, e);
                 continue;
             }
         };
 
-        println!("- [{:03}/{}] Page: {}; Response: {}", page_count, PAGES_PER_RUN, page, resp.status());
+        println!("- Page: {}; Response: {}", page, resp.status());
 
         if !resp.status().is_success() {
-            eprintln!("{} - Failed Page {}: Status {}", page_count, page, resp.status());
+            eprintln!("Failed Page {}: Status {}", page, resp.status());
 
             let mut file = fs::OpenOptions::new()
                 .create(true)
@@ -210,7 +157,7 @@ async fn main() {
         let html: String = match resp.text().await {
             Ok(t) => t,
             Err(e) => {
-                eprintln!("{} - Failed To Read HTML Page {}: {}", page_count, page, e);
+                eprintln!("Failed To Read HTML Page {}: {}", page, e);
                 continue;
             }
         };
@@ -220,7 +167,7 @@ async fn main() {
             continue;
         }
 
-        let csv_path: String = format!("output/questions-id/{}.csv", page);
+        let csv_path: String = format!("output/{}.csv", page);
         let mut file = fs::OpenOptions::new()
             .write(true)
             .create(true)
@@ -240,11 +187,7 @@ async fn main() {
         }
 
         writer.flush().unwrap();
-
-        write_last_page(page);
-
-        page_count += 1;
     }
 
-    println!("\n- Completed Processing {} Pages. Last Page Processed: {}", page_count - 1, ending_page);
+    println!("\n- Completed Processing All Pages");
 }
