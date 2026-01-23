@@ -9,6 +9,7 @@ A simple and efficient asynchronous web scraper built in Rust to fetch all quest
 -   **Polite Scraping**: Implements random delays (0.1-1.9 seconds) between requests to avoid overwhelming the server and respect rate limits.
 -   **Resilient**: Handles network errors and non-successful HTTP responses gracefully, logging failed pages for manual review.
 -   **Data Persistence**: Stores scraped data in a SQLite database (`output/stackoverflow.db`) with a unique constraint on question IDs.
+-   **Timestamp Extraction**: Parses the question's creation date and time.
 -   **Duplicate Prevention**: Checks for existing question IDs in the database before insertion to avoid duplicate entries.
 -   **Incremental Scraping**:
     -   Processes a configurable number of pages per run (default: 500 pages via `PAGES_PER_RUN` constant).
@@ -37,7 +38,7 @@ Stackoverflow-Scraper/
 
 ## How It Works
 
-1.  **Initialization**: The scraper creates an `output` directory, initializes a SQLite database, and creates the `stackoverflow_questions` table if it doesn't exist.
+1.  **Initialization**: The scraper creates an `output` directory, initializes a SQLite database, and creates/updates the `stackoverflow_questions` table schema.
 
 2.  **Metadata Fetch**: It makes an initial request to Stack Overflow to determine the total number of questions and calculates the total number of pages to scrape (50 questions per page).
 
@@ -46,10 +47,10 @@ Stackoverflow-Scraper/
 4.  **Incremental Scraping Loop**: It processes up to `PAGES_PER_RUN` pages (default: 500) in reverse chronological order:
     -   For each page, it sends an HTTP GET request with a `User-Agent` header.
     -   Adds a random delay (0.1-1.9 seconds) between requests to be a polite scraper.
-    -   Uses the `questionsvalue` module to parse the HTML response and extract question titles and IDs.
+    -   Uses the `questionsvalue` module to parse the HTML response and extract question titles, IDs, and timestamps.
     -   Checks for duplicate question IDs in the database before insertion using functions from the `database` module.
 
-5.  **Data Storage**: For each question, it checks if the ID already exists in the database. If not, it inserts the new question data (ID and title). After successfully processing a page, it updates `output/LastPage.txt` using functions from the `fileops` module.
+5.  **Data Storage**: For each question, it checks if the ID already exists in the database. If not, it inserts the new question data (ID, title, and timestamp). After successfully processing a page, it updates `output/LastPage.txt`.
 
 6.  **Error Handling**: Failed page fetches are logged to `output/LostPage.txt` with their page numbers for manual investigation or retry.
 
@@ -59,19 +60,26 @@ Stackoverflow-Scraper/
 
 The project relies on the following Rust crates:
 
--   `tokio` (v1.49.0): Asynchronous runtime with full features enabled.
--   `reqwest` (v0.13.1): HTTP client for making web requests.
+-   `tokio` (v1.49.0): Asynchronous runtime.
+-   `reqwest` (v0.13.1): HTTP client.
 -   `scraper` (v0.25.0): HTML parsing and CSS selector matching.
--   `rusqlite` (v0.38.0): SQLite database interaction with bundled SQLite.
--   `rand` (v0.9.2): Random number generation for delays.
+-   `rusqlite` (v0.38.0): SQLite database interaction.
+-   `rand` (v0.9.2): Random number generation.
+-   `chrono` (v0.4.43): Date and time library.
 
 ## Database Schema
 
 ```sql
 CREATE TABLE stackoverflow_questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    q_id INTEGER NOT NULL UNIQUE,      -- Stack Overflow question ID
-    question TEXT NOT NULL              -- Question title
+    q_id INTEGER NOT NULL UNIQUE,
+    question TEXT NOT NULL,
+    q_year INTEGER NOT NULL,
+    q_month INTEGER NOT NULL,
+    q_day INTEGER NOT NULL,
+    q_hour INTEGER NOT NULL,
+    q_min INTEGER NOT NULL,
+    q_sec INTEGER NOT NULL
 );
 ```
 
