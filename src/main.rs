@@ -145,8 +145,8 @@ async fn main() {
             let title_utf8 = String::from_utf8_lossy(item.title.as_bytes()).to_string();
 
             match conn.execute(
-                "INSERT INTO stackoverflow_questions (q_id, question) VALUES (?1, ?2)",
-                params![item.id, &title_utf8],
+                "INSERT INTO stackoverflow_questions (q_id, question, q_year, q_month, q_day, q_hour, q_min, q_sec) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![item.id, &title_utf8, item.q_year, item.q_month, item.q_day, item.q_hour, item.q_min, item.q_sec],
             ) {
                 Ok(_) => {},
                 Err(e) => eprintln!("Failed To Insert Question {}: {}", item.id, e),

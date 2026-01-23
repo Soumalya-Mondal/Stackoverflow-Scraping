@@ -9,6 +9,7 @@ tokio = {version = "1.49.0", features = ["full"]}
 scraper = "0.25.0"
 rand = "0.9.2"
 rusqlite = { version = "0.38.0", features = ["bundled"] }
+chrono = "0.4.43"
 
 [profile.release]
 opt-level = 3
