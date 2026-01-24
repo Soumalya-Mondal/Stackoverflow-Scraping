@@ -7,6 +7,8 @@ use tokio::time::{sleep, Duration};
 use scraper::{Html, Selector};
 use std::fs;
 use std::io::Write;
+use dotenv::dotenv;
+use std::env;
 
 // ============================================================================
 // Module Declarations
@@ -27,19 +29,22 @@ const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 // ============================================================================
 #[tokio::main]
 async fn main() {
-    // Hardcoded database connection parameters
-    let host = "localhost";
-    let port = "5432";
-    let database_name = "stackoverflow_data";
-    let database_user = "soumalya";
-    let password = "Soumalya@1996";
+    // Load environment variables from .env file
+    dotenv().ok();
+
+    // Get database connection parameters from environment variables
+    let host = env::var("DATABASE_HOST").expect("DATABASE_HOST must be set");
+    let port = env::var("DATABASE_PORT").expect("DATABASE_PORT must be set");
+    let database_name = env::var("DATABASE_NAME").expect("DATABASE_NAME must be set");
+    let database_user = env::var("DATABASE_USER").expect("DATABASE_USER must be set");
+    let password = env::var("DATABASE_PASSWORD").expect("DATABASE_PASSWORD must be set");
 
     let web_client = Client::new();
 
     fs::create_dir_all("output")
         .unwrap();
 
-    let client = connect_database(host, port, database_name, database_user, password)
+    let client = connect_database(&host, &port, &database_name, &database_user, &password)
         .await
         .expect("Failed to connect to database");
 

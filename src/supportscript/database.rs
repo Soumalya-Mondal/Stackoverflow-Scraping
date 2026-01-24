@@ -1,4 +1,6 @@
-use tokio_postgres::{Client, Error, NoTls};
+use tokio_postgres::{Client, Error};
+use postgres_native_tls::MakeTlsConnector;
+use native_tls::TlsConnector;
 use std::process;
 
 // ============================================================================
@@ -11,16 +13,24 @@ pub async fn connect_database(
     database_user: &str,
     password: &str,
 ) -> Result<Client, Error> {
+    // Configure TLS for Azure PostgreSQL (required for Azure)
+    let tls_connector = TlsConnector::builder()
+        .danger_accept_invalid_certs(false)  // Use true only for dev/testing
+        .build()
+        .expect("Failed to create TLS connector");
+    let tls = MakeTlsConnector::new(tls_connector);
+
     // First, connect to the default 'postgres' database to check if target database exists
     let check_connection_string = format!(
-        "host={} port={} dbname=postgres user={} password={}",
+        "host={} port={} dbname=postgres user={} password={} sslmode=require",
         host, port, database_user, password
     );
 
-    let (check_client, check_connection) = match tokio_postgres::connect(&check_connection_string, NoTls).await {
+    let (check_client, check_connection) = match tokio_postgres::connect(&check_connection_string, tls.clone()).await {
         Ok(conn) => conn,
         Err(e) => {
             eprintln!("❌ Failed to connect to PostgreSQL server: {}", e);
+            eprintln!("   Make sure SSL/TLS is properly configured for Azure PostgreSQL.");
             process::exit(1);
         }
     };
@@ -49,13 +59,20 @@ pub async fn connect_database(
 
     println!("✅ Database '{}' found. Connecting...", database_name);
 
+    // Configure TLS for the actual connection
+    let tls_connector2 = TlsConnector::builder()
+        .danger_accept_invalid_certs(false)  // Use true only for dev/testing
+        .build()
+        .expect("Failed to create TLS connector");
+    let tls2 = MakeTlsConnector::new(tls_connector2);
+
     // Now connect to the actual target database
     let connection_string = format!(
-        "host={} port={} dbname={} user={} password={}",
+        "host={} port={} dbname={} user={} password={} sslmode=require",
         host, port, database_name, database_user, password
     );
 
-    let (client, connection) = tokio_postgres::connect(&connection_string, NoTls).await?;
+    let (client, connection) = tokio_postgres::connect(&connection_string, tls2).await?;
 
     // Spawn connection in background
     tokio::spawn(async move {
