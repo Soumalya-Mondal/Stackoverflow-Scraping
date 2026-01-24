@@ -1,92 +1,91 @@
-use rusqlite::Connection;
+use tokio_postgres::{Client, Error, NoTls};
+use std::process;
 
 // ============================================================================
-// Check if table exists in database
+// Connect to PostgreSQL database
 // ============================================================================
-pub fn table_exists(conn: &Connection, table_name: &str) -> rusqlite::Result<bool> {
-    let mut stmt = conn.prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?1"
-    )?;
-    let exists = stmt.exists([table_name])?;
-    Ok(exists)
+pub async fn connect_database(
+    host: &str,
+    port: &str,
+    database_name: &str,
+    database_user: &str,
+    password: &str,
+) -> Result<Client, Error> {
+    // First, connect to the default 'postgres' database to check if target database exists
+    let check_connection_string = format!(
+        "host={} port={} dbname=postgres user={} password={}",
+        host, port, database_user, password
+    );
+
+    let (check_client, check_connection) = match tokio_postgres::connect(&check_connection_string, NoTls).await {
+        Ok(conn) => conn,
+        Err(e) => {
+            eprintln!("❌ Failed to connect to PostgreSQL server: {}", e);
+            process::exit(1);
+        }
+    };
+
+    // Spawn check connection in background
+    tokio::spawn(async move {
+        if let Err(e) = check_connection.await {
+            eprintln!("PostgreSQL connection error: {}", e);
+        }
+    });
+
+    // Query to check if the database exists
+    let query = format!(
+        "SELECT 1 FROM pg_database WHERE datname = '{}'",
+        database_name
+    );
+
+    let rows = check_client.query(&query, &[]).await?;
+
+    if rows.is_empty() {
+        eprintln!("❌ ERROR: Database '{}' does not exist in PostgreSQL server!", database_name);
+        eprintln!("   Please create the database first using:");
+        eprintln!("   CREATE DATABASE {};", database_name);
+        process::exit(1);
+    }
+
+    println!("✅ Database '{}' found. Connecting...", database_name);
+
+    // Now connect to the actual target database
+    let connection_string = format!(
+        "host={} port={} dbname={} user={} password={}",
+        host, port, database_name, database_user, password
+    );
+
+    let (client, connection) = tokio_postgres::connect(&connection_string, NoTls).await?;
+
+    // Spawn connection in background
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("PostgreSQL connection error: {}", e);
+        }
+    });
+
+    Ok(client)
 }
 
 // ============================================================================
 // Initialize database with table creation
 // ============================================================================
-pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
-    if !table_exists(conn, "stackoverflow_questions")? {
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS stackoverflow_questions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                q_id INTEGER NOT NULL UNIQUE,
-                question TEXT NOT NULL,
-                q_year INTEGER NOT NULL,
-                q_month INTEGER NOT NULL,
-                q_day INTEGER NOT NULL,
-                q_hour INTEGER NOT NULL,
-                q_min INTEGER NOT NULL,
-                q_sec INTEGER NOT NULL
-            )",
-            [],
-        )?;
-    } else {
-        // Add time columns if they don't exist (for existing databases)
-        let columns_to_add = [
-            ("q_year", "INTEGER DEFAULT 0"),
-            ("q_month", "INTEGER DEFAULT 0"),
-            ("q_day", "INTEGER DEFAULT 0"),
-            ("q_hour", "INTEGER DEFAULT 0"),
-            ("q_min", "INTEGER DEFAULT 0"),
-            ("q_sec", "INTEGER DEFAULT 0"),
-        ];
+pub async fn init_database(client: &Client) -> Result<(), Error> {
+    client.execute(
+        "CREATE TABLE IF NOT EXISTS question_data (
+            id SERIAL PRIMARY KEY,
+            q_id BIGINT NOT NULL UNIQUE,
+            q_title TEXT,
+            q_year INTEGER NOT NULL,
+            q_month INTEGER NOT NULL,
+            q_day INTEGER NOT NULL,
+            q_hours INTEGER NOT NULL,
+            q_min INTEGER NOT NULL,
+            q_sec INTEGER NOT NULL,
+            row_inserted_at TIMESTAMPTZ DEFAULT NOW()
+        )",
+        &[],
+    ).await?;
 
-        for (col_name, col_type) in columns_to_add.iter() {
-            let column_exists: bool = conn
-                .prepare("PRAGMA table_info(stackoverflow_questions)")
-                .and_then(|mut stmt| {
-                    let mut rows = stmt.query([])?;
-                    let mut found = false;
-                    while let Some(row) = rows.next()? {
-                        let existing_col_name: String = row.get(1)?;
-                        if existing_col_name == *col_name {
-                            found = true;
-                            break;
-                        }
-                    }
-                    Ok(found)
-                })
-                .unwrap_or(false);
-
-            if !column_exists {
-                conn.execute(
-                    &format!("ALTER TABLE stackoverflow_questions ADD COLUMN {} {}", col_name, col_type),
-                    [],
-                )?;
-            }
-        }
-
-        // Drop timestamp column if it exists
-        let timestamp_exists: bool = conn
-            .prepare("PRAGMA table_info(stackoverflow_questions)")
-            .and_then(|mut stmt| {
-                let mut rows = stmt.query([])?;
-                let mut found = false;
-                while let Some(row) = rows.next()? {
-                    let col_name: String = row.get(1)?;
-                    if col_name == "timestamp" {
-                        found = true;
-                        break;
-                    }
-                }
-                Ok(found)
-            })
-            .unwrap_or(false);
-
-        if timestamp_exists {
-            // SQLite doesn't support DROP COLUMN directly, so we'll leave it
-            // Users can manually drop it if needed
-        }
-    }
     Ok(())
 }

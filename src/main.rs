@@ -6,14 +6,13 @@ use rand::Rng;
 use tokio::time::{sleep, Duration};
 use scraper::{Html, Selector};
 use std::fs;
-use rusqlite::{Connection, params};
 use std::io::Write;
 
 // ============================================================================
 // Module Declarations
 // ============================================================================
 mod supportscript;
-use supportscript::{parse_questions, init_database, get_last_processed_page_from_file, save_last_page_to_file};
+use supportscript::{parse_questions, connect_database, init_database, get_last_processed_page_from_file, save_last_page_to_file};
 
 // ============================================================================
 // Constants
@@ -22,23 +21,30 @@ const BASE_URL: &str = "https://stackoverflow.com/questions";
 const REQUIRED_BLOCK_SELECTOR: &str = "div#questions";
 const TOTAL_QUESTION_SELECTOR: &str = "meta[itemprop='numberOfItems']";
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
-const DB_PATH: &str = "output/stackoverflow.db";
-const PAGES_PER_RUN: u64 = 500;
 
 // ============================================================================
 // Main Async Function
 // ============================================================================
 #[tokio::main]
 async fn main() {
+    // Hardcoded database connection parameters
+    let host = "localhost";
+    let port = "5432";
+    let database_name = "stackoverflow_data";
+    let database_user = "soumalya";
+    let password = "Soumalya@1996";
+
     let web_client = Client::new();
 
     fs::create_dir_all("output")
         .unwrap();
 
-    let conn = Connection::open(DB_PATH)
-        .expect("Failed to open database");
+    let client = connect_database(host, port, database_name, database_user, password)
+        .await
+        .expect("Failed to connect to database");
 
-    init_database(&conn)
+    init_database(&client)
+        .await
         .expect("Failed to initialize database");
 
     let page_response = web_client
@@ -74,15 +80,14 @@ async fn main() {
     let total_pages_count: u64 = total_question_count.div_ceil(50) as u64;
     let last_processed_page = get_last_processed_page_from_file() as u64;
 
-    let start_page = if last_processed_page == 0 { total_pages_count } else { last_processed_page + 1 };
-    let end_page = std::cmp::max(1, start_page.saturating_sub(PAGES_PER_RUN - 1));
+    let start_page = if last_processed_page == 0 { total_pages_count } else { last_processed_page - 1 };
 
-    println!("- Processing Pages {} to {}\n", start_page, end_page);
+    println!("- Processing Pages {} to 1 (Total Pages: {})\n", start_page, total_pages_count);
 
-    let mut page_count: u16 = 1;
     let mut last_processed_page: u64;
+    let mut iteration: u64 = 1;
 
-    for page in (end_page..=start_page).rev() {
+    for page in (1..=start_page).rev() {
         let url: String = format!("{}?page={}&pagesize=50", BASE_URL, page);
 
         sleep(Duration::from_secs_f64(rand::rng().random_range(0.1..=1.9)))
@@ -97,12 +102,12 @@ async fn main() {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Failed To Fetch Page {}: {}", page, e);
-                page_count += 1;
+                iteration += 1;
                 continue;
             }
         };
 
-        println!("[{:03}/{:03}] - Page: {}; Response: {}", page_count, PAGES_PER_RUN, page, resp.status());
+        println!("[{}/{}] - Page: {}; Response: {}", iteration, total_pages_count, page, resp.status());
 
         if !resp.status().is_success() {
             eprintln!("Failed Page {}: Status {}", page, resp.status());
@@ -113,7 +118,7 @@ async fn main() {
                 .open("output/LostPage.txt")
                 .unwrap();
             writeln!(file, "{}", page).unwrap();
-            page_count += 1;
+            iteration += 1;
             continue;
         }
 
@@ -121,33 +126,40 @@ async fn main() {
             Ok(t) => t,
             Err(e) => {
                 eprintln!("Failed To Read HTML Page {}: {}", page, e);
-                page_count += 1;
                 continue;
             }
         };
 
         let items = parse_questions(&html);
         if items.is_empty() {
-            page_count += 1;
             continue;
         }
 
         for item in items {
             // Check if "q_id" already exists
-            let mut stmt = conn.prepare("SELECT id FROM stackoverflow_questions WHERE q_id = ?1")
-                .expect("Failed To Prepare Statement");
-            let existing_id: Result<i64, _> = stmt.query_row([item.id], |row| row.get(0));
+            let existing = client.query(
+                "SELECT id FROM question_data WHERE q_id = $1",
+                &[&item.id],
+            ).await;
 
-            if existing_id.is_ok() {
-                continue;
-            }
+            if let Ok(rows) = existing
+                && !rows.is_empty() {
+                    continue;
+                }
 
             let title_utf8 = String::from_utf8_lossy(item.title.as_bytes()).to_string();
+            
+            let q_year = item.q_year as i32;
+            let q_month = item.q_month as i32;
+            let q_day = item.q_day as i32;
+            let q_hours = item.q_hour as i32;
+            let q_min = item.q_min as i32;
+            let q_sec = item.q_sec as i32;
 
-            match conn.execute(
-                "INSERT INTO stackoverflow_questions (q_id, question, q_year, q_month, q_day, q_hour, q_min, q_sec) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![item.id, &title_utf8, item.q_year, item.q_month, item.q_day, item.q_hour, item.q_min, item.q_sec],
-            ) {
+            match client.execute(
+                "INSERT INTO question_data (q_id, q_title, q_year, q_month, q_day, q_hours, q_min, q_sec) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                &[&item.id, &title_utf8, &q_year, &q_month, &q_day, &q_hours, &q_min, &q_sec],
+            ).await {
                 Ok(_) => {},
                 Err(e) => eprintln!("Failed To Insert Question {}: {}", item.id, e),
             }
@@ -155,8 +167,8 @@ async fn main() {
 
         last_processed_page = page;
         save_last_page_to_file(last_processed_page);
-        page_count += 1;
+        iteration += 1;
     }
 
-    println!("\n- Completed Processing Pages {} to {}", start_page, end_page);
+    println!("\n- Completed Processing Pages {} to 1", start_page);
 }
