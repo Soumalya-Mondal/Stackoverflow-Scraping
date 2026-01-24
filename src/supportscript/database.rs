@@ -100,7 +100,7 @@ pub async fn init_database(client: &Client) -> Result<(), Error> {
             q_min INTEGER NOT NULL,
             q_sec INTEGER NOT NULL,
             row_inserted_at TIMESTAMPTZ DEFAULT NOW()
-        ) ON CONFLICT (q_id) DO NOTHING",
+        )",
         &[],
     ).await?;
 
