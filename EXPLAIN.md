@@ -76,14 +76,10 @@ Iterates through pages from 1 up to `start_page` in reverse order:
     - If no questions are found (empty vector), continues to the next page.
 
 7.  **Insert into Database** - For each extracted question:
-    - Executes a SELECT query to check if the question ID (`q_id`) already exists in the `question_data` table.
-    - If it exists, silently skips the question to avoid duplicates.
-    - If it's a new question:
-      - Converts the title to valid UTF-8 using `String::from_utf8_lossy()`.
-      - Converts timestamp components to i32 for PostgreSQL compatibility.
-      - Inserts the question ID, title (as `titel`), and timestamp components (`q_year`, `q_month`, `q_day`, `q_hours`, `q_min`, `q_sec`) into the `question_data` table using PostgreSQL parameterized queries ($1, $2, etc.).
-      - The `row_inserted_at` column is automatically populated with the current timestamp.
-      - Prints an error to stderr if the insertion fails.
+    - Inserts the question ID, title (as `titel`), and timestamp components (`q_year`, `q_month`, `q_day`, `q_hours`, `q_min`, `q_sec`) into the `question_data` table using PostgreSQL parameterized queries ($1, $2, etc.).
+    - The database constraint `ON CONFLICT (q_id) DO NOTHING` ensures that if a duplicate question ID exists, no data is inserted.
+    - The `row_inserted_at` column is automatically populated with the current timestamp.
+    - Prints an error to stderr if the insertion fails.
 
 8.  **Save Progress** - After processing all questions on a page, calls `save_last_page_to_file()` to update the last processed page number in `output/LastPage.txt`.
 
@@ -102,10 +98,11 @@ Prints a completion message indicating which page range was processed.
 - Initializes the PostgreSQL database.
 - Creates the `question_data` table if it doesn't exist with columns: 
   - `id` (SERIAL PRIMARY KEY - auto-incrementing)
-  - `q_id` (BIGINT NOT NULL UNIQUE - Stack Overflow question ID)
+  - `q_id` (BIGINT NOT NULL UNIQUE - Stack Overflow question ID with unique constraint)
   - `titel` (TEXT - question title)
   - `q_year`, `q_month`, `q_day`, `q_hours`, `q_min`, `q_sec` (INTEGER NOT NULL)
   - `row_inserted_at` (TIMESTAMPTZ DEFAULT NOW() - automatic insertion timestamp)
+- The UNIQUE constraint on `q_id` enforces uniqueness at the database level.
 
 ## supportscript/fileops.rs
 
@@ -162,15 +159,15 @@ Extracts questions from an HTML page string:
 A helper function that parses a timestamp string (e.g., "2026-01-23 13:32:20") into a tuple of `(year, month, day, hour, min, sec)`. If parsing fails, it returns the current local time.
 
 ## Execution Flow Summary
-1.  Connect to PostgreSQL database using hardcoded credentials and create/update the `question_data` table schema.
+1.  Connect to PostgreSQL database using hardcoded credentials and create/update the `question_data` table schema with a UNIQUE constraint on `q_id`.
 2.  Fetch the first page of Stack Overflow to determine the total number of pages.
 3.  Read `output/LastPage.txt` to find the last processed page and calculate the starting page.
 4.  Iterate through all pages from the starting page down to page 1 in reverse order.
 5.  For each page:
     - Fetch the HTML with a polite random delay.
     - Parse questions and their timestamps from the HTML.
-    - For each question, check for existence in the PostgreSQL database.
-    - Insert new questions (including timestamp) into the `question_data` table.
+    - For each question, insert the data into the PostgreSQL database.
+    - The `ON CONFLICT (q_id) DO NOTHING` clause in the INSERT statement automatically handles duplicate prevention at the database level.
     - The `row_inserted_at` column is automatically populated with the current timestamp.
     - Update `output/LastPage.txt` with the current page number.
 6.  Log errors for failed page fetches to `output/LostPage.txt`.
@@ -181,7 +178,7 @@ A helper function that parses a timestamp string (e.g., "2026-01-23 13:32:20") i
 - **PostgreSQL Database**: Uses PostgreSQL instead of SQLite for better scalability and production readiness.
 - **Modular Architecture**: Separation of parsing logic into `questionsvalue.rs` allows for better code organization and testability.
 - **Continuous Processing**: Processes all remaining pages from the last checkpoint down to page 1 in a single run.
-- **Duplicate Prevention**: Database-level uniqueness constraint and query-based checking prevent duplicate entries.
+- **Duplicate Prevention**: UNIQUE constraint on `q_id` column combined with `ON CONFLICT (q_id) DO NOTHING` in the INSERT statement ensures duplicate question IDs are silently ignored without inserting any data.
 - **Error Resilience**: Individual page failures don't stop the entire process; failed pages are logged for retry.
 - **Polite Scraping**: Random delays between requests respect the target server's resources.
 - **Automatic Timestamps**: The `row_inserted_at` column automatically tracks when each record was inserted.

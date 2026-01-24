@@ -10,7 +10,7 @@ A simple and efficient asynchronous web scraper built in Rust to fetch all quest
 -   **Resilient**: Handles network errors and non-successful HTTP responses gracefully, logging failed pages for manual review.
 -   **PostgreSQL Database**: Stores scraped data in a PostgreSQL database with a unique constraint on question IDs and automatic timestamp tracking.
 -   **Timestamp Extraction**: Parses the question's creation date and time, plus tracks insertion time automatically.
--   **Duplicate Prevention**: Checks for existing question IDs in the database before insertion to avoid duplicate entries.
+-   **Duplicate Prevention**: The table has a UNIQUE constraint on `q_id`, and the INSERT statement uses `ON CONFLICT (q_id) DO NOTHING` to silently ignore duplicate question IDs.
 -   **Continuous Scraping**:
     -   Processes all remaining pages from the last checkpoint down to page 1.
     -   Automatically resumes from where it left off on subsequent runs using `output/LastPage.txt`.
@@ -49,7 +49,7 @@ Stackoverflow-Scraper/
     -   Uses the `questionsvalue` module to parse the HTML response and extract question titles, IDs, and timestamps.
     -   Checks for duplicate question IDs in the database before insertion using functions from the `database` module.
 
-5.  **Data Storage**: For each question, it checks if the ID already exists in the database. If not, it inserts the new question data (ID, title as `titel`, and timestamp components). The `row_inserted_at` column is automatically populated with the current timestamp. After successfully processing a page, it updates `output/LastPage.txt`.
+5.  **Data Storage**: For each question, it inserts the new question data (ID, title as `titel`, and timestamp components) into the `question_data` table. If a question ID already exists, the `ON CONFLICT (q_id) DO NOTHING` clause silently ignores the duplicate. The `row_inserted_at` column is automatically populated with the current timestamp. After successfully processing a page, it updates `output/LastPage.txt`.
 
 6.  **Error Handling**: Failed page fetches are logged to `output/LostPage.txt` with their page numbers for manual investigation or retry.
 
