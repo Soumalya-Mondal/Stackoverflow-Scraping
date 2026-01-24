@@ -162,7 +162,7 @@ async fn main() {
             let q_sec = item.q_sec as i32;
 
             match client.execute(
-                "INSERT INTO question_data (q_id, q_title, q_year, q_month, q_day, q_hours, q_min, q_sec) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                "INSERT INTO question_data (q_id, q_title, q_year, q_month, q_day, q_hours, q_min, q_sec) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (q_id) DO NOTHING",
                 &[&item.id, &title_utf8, &q_year, &q_month, &q_day, &q_hours, &q_min, &q_sec],
             ).await {
                 Ok(_) => {},

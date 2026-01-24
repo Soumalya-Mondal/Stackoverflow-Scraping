@@ -29,7 +29,7 @@ pub async fn connect_database(
     let (check_client, check_connection) = match tokio_postgres::connect(&check_connection_string, tls.clone()).await {
         Ok(conn) => conn,
         Err(e) => {
-            eprintln!("❌ Failed to connect to PostgreSQL server: {}", e);
+            eprintln!("[ERROR] Failed to connect to PostgreSQL server: {}", e);
             eprintln!("   Make sure SSL/TLS is properly configured for Azure PostgreSQL.");
             process::exit(1);
         }
@@ -51,13 +51,13 @@ pub async fn connect_database(
     let rows = check_client.query(&query, &[]).await?;
 
     if rows.is_empty() {
-        eprintln!("❌ ERROR: Database '{}' does not exist in PostgreSQL server!", database_name);
+        eprintln!("[ERROR] Database '{}' does not exist in PostgreSQL server!", database_name);
         eprintln!("   Please create the database first using:");
         eprintln!("   CREATE DATABASE {};", database_name);
         process::exit(1);
     }
 
-    println!("✅ Database '{}' found. Connecting...", database_name);
+    println!("[OK] Database '{}' found. Connecting...", database_name);
 
     // Configure TLS for the actual connection
     let tls_connector2 = TlsConnector::builder()
@@ -100,7 +100,7 @@ pub async fn init_database(client: &Client) -> Result<(), Error> {
             q_min INTEGER NOT NULL,
             q_sec INTEGER NOT NULL,
             row_inserted_at TIMESTAMPTZ DEFAULT NOW()
-        )",
+        ) ON CONFLICT (q_id) DO NOTHING",
         &[],
     ).await?;
 
